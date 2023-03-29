@@ -23,6 +23,35 @@ def reshapeObs(y):
         yNew = np.array(np.where(y==1)[1]).reshape(y.shape[0],)
     return yNew
 
+def reshapeSigma(sigma, K, D):
+    ''' 
+    changing variance parameter sigma to have shape KxD
+
+    Parameters
+    ----------
+    sigma: nonnegative floats
+        either scalar, Kx1, 1xD, or KxD numpy array
+
+    Returns
+    -------
+    newSigma: KxD numpy array
+    '''
+    newSigma = np.empty((K,D))
+    if (isinstance(sigma, float)  == True) or isinstance(sigma, int)  == True:
+        newSigma.fill(sigma)
+    elif (sigma.shape[0]==1 and sigma.shape[1]==D):
+        newSigma = np.repeat(sigma, repeats = K, axis=0)
+    elif (sigma.shape[0]==K and sigma.shape[1]==1):
+        newSigma = np.repeat(sigma, repeats = D, axis=1)
+    elif (sigma.shape[0]==K and sigma.shape[1]==D):
+        newSigma = np.copy(sigma)
+    else:
+        raise Exception('sigma can only be scalar, Kx1, 1xD, or KxD numpy array')
+    
+    # add check of nonnegative elements
+
+    return newSigma
+
 def accuracy(x,y,z,s):
     '''
     Calculates and plots percentage accuracy (given X and Y) and percentage accuracy in state 0 (given Z)

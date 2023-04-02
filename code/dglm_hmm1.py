@@ -249,4 +249,61 @@ class dGLM_HMM1():
             
         return gamma, zeta
 
+    def generate_param(self, sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]):
+        ''' 
+        Function that generates parameters w and P and is used for initialization of parameters during fitting
+
+        Parameters
+        ----------
+        sessInd: list of int
+            indices of each session start, together with last session end + 1
+        transitionDistribution: list of length 2
+            first is str of distribution type, second is parameter tuple 
+                dirichlet ditribution comes with (alphaDiagonal, alphaOther) the concentration values for either main diagonal or other locations
+        weightDistribution: list of length 2
+            first is str of distribution type, second is parameter tuple
+                uniform distribution comes with (low, high) 
+                normal distribution comes with (mean, std)
+
+        Returns
+        ----------
+        p: k x k numpy array
+            probability transition matrix
+        w: n x k x d x c numpy array
+            weight matrix. for c=2, trueW[:,:,:,1] = 0 
+        
+        '''
+
+        sess = len(sessInd)-1 # number of total sessions
+
+        # initialize weight and transitions
+        p = np.empty((self.k, self.k))
+        w = np.zeros((self.n, self.k, self.d, self.c))
+
+        # generating transition matrix 
+        if (transitionDistribution[0] == 'dirichlet'):
+            (alphaDiag, alphaOther) = transitionDistribution[1]
+            for k in range(0, self.k):
+                alpha = np.full((self.k), alphaOther)
+                alpha[k] = alphaDiag # concentration parameter of Dirichlet for row k
+                p[k,:] = np.random.dirichlet(alpha)
+        else:
+            raise Exception("Transition distribution can only be dirichlet")
+        
+        # generating weight matrix
+        if (weightDistribution[0] == 'uniform'):
+            (low, high) = weightDistribution[1]
+            for s in range(0,sess):
+                rv = np.random.uniform(low, high, (self.k, self.d))
+                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+        elif (weightDistribution[0] == 'normal'):
+            (mean, std) = weightDistribution[1]
+            for s in range(0,sess):
+                rv = np.random.normal(mean, std, (self.k, self.d))
+                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+        else:
+            raise Exception("Weight distribution can only be uniform or normal")
+
+        return p, w 
+
     

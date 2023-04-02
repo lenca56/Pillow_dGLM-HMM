@@ -53,7 +53,7 @@ class dGLM_HMM1():
 
         return phi
     
-    def simulate_data(self, trueW, trueP, sessInd, pi0=0.5):
+    def simulate_data(self, trueW, trueP, sessInd, save=False, pi0=0.5):
         '''
         function that simulates X and Y data from true weights and true transition matrix
 
@@ -67,6 +67,8 @@ class dGLM_HMM1():
             0.5 probability of starting a session with state 0 (works for C=2)
         sessInd: list of int
             indices of each session start, together with last session end + 1
+        save: boolean
+            whether to save out simulated data
         pi0: float
             constant between 0 and 1, representing probability that first latent in a session is state 0
             
@@ -112,6 +114,11 @@ class dGLM_HMM1():
             y[t,int(np.random.binomial(n=1,p=phi[t,z[t],1]))]=1
         
         y = reshapeObs(y) # reshaping from n x c to n x 1
+
+        if (save==True):
+            np.save('../data/simX', x)
+            np.save('../data/simY', y)
+            np.save('../data/simZ', z)
 
         return x, y, z
 
@@ -316,7 +323,7 @@ class dGLM_HMM1():
         currentW: k x d numpy array
             weights of current session for C=0
         x: T x d numpy array
-            input matrix
+            design matrix
         y : T x 1 numpy vector 
             vector of observations with values 0,1,..,C-1
         gamma: T x k numpy array
@@ -330,7 +337,7 @@ class dGLM_HMM1():
         
         Returns
         ----------
-        -ll: float
+        -lf: float
             loss function for currentW to be minimized
         '''
         # number of datapoints
@@ -346,20 +353,110 @@ class dGLM_HMM1():
         logPhi = np.log(phi) # natural log of observation probabilities
 
         # weighted log likelihood term of loss function
-        ll = 0
+        lf = 0
         for t in range(0, T):
-            ll += np.multiply(gamma[t,:],logPhi[t,:,y[t]]).sum()
+            lf += np.multiply(gamma[t,:],logPhi[t,:,y[t]]).sum()
         
         # prior term for drifting of loss function
         # currentW | prevW ~ Normal(prevW, sigma^2) and currentW | nextW ~ Normal(nextW, sigma^2)
         for k in range(0, self.k):
             if (prevW is not None):
                 rv = multivariate_normal(mean=prevW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-                ll += np.log(rv.pdf(currentW[k,:]))   
+                lf += np.log(rv.pdf(currentW[k,:]))   
             if (nextW is not None):
                 rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-                ll += np.log(rv.pdf(currentW[k,:]))
+                lf += np.log(rv.pdf(currentW[k,:]))
                 
-        return -ll
-
+        return -lf
     
+    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
+        '''
+        Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
+        forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
+        then after all weights are optimized (in consecutive increasing order), the transition matrix is updated with the old zetas that
+        were calculated before weights were optimized
+
+        Parameters
+        ----------
+        x: T x d numpy array
+            design matrix
+        y : T x 1 numpy vector 
+            vector of observations with values 0,1,..,C-1
+        initP :k x k numpy array
+            initial matrix of transition probabilities
+        initW: n x k x d x c numpy array
+            initial weight matrix
+        sigma: k x d numpy array
+            st dev of normal distr for weights drifting over sessions
+        sessInd: list of int
+            indices of each session start, together with last session end + 1
+        pi0 : k x 1 numpy vector
+            initial k x 1 vector of state probabilities for t=1.
+        maxiter : int
+            The maximum number of iterations of EM to allow. The default is 250.
+        tol : float
+            The tolerance value for the loglikelihood to allow early stopping of EM. The default is 1e-3.
+        
+        Returns
+        -------
+        p: k x k numpy array
+            fitted probability transition matrix
+        w: n x k x d x c numpy array
+            fitteed weight matrix
+        ll: float
+            marginal log-likelihood of the data p(y)
+        '''
+
+        if sessInd is None:
+            sessInd = [0,self.n]
+            sess = 1 # equivalent to saying the entire data set has one session
+        else:
+            sess = len(sessInd)-1 # total number of sessions 
+
+        # initialize weights and transition matrix
+        w = np.copy(initW)
+        p = np.copy(initP)
+
+        # initialize zeta = joint posterior of successive latents 
+        zeta = np.zeros((self.n-1, self.k, self.k)).astype(float) 
+        # initialize marginal log likelihood p(y)
+        ll = np.zeros((maxIter)).astype(float) 
+
+        for iter in range(maxIter):
+            print(iter)
+            
+            # calculate observation probabilities given theta_old
+            phi = self.observation_probability(x, w)
+
+            # EM step for each session independently 
+            for s in range(0,sess):
+                
+                # E step - forward and backward passes given theta_old (= previous w and p)
+                alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)
+                betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, pi0=pi0)
+                gammaSess, zetaSess = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
+                
+                # merging zeta for all sessions 
+                zeta[sessInd[s]:sessInd[s+1]-1,:,:] = zetaSess[:,:,:] 
+                ll[iter] += llSess
+                
+                # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
+                w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
+                prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
+                nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
+                optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
+                optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
+                w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+                
+            # M-step for transition matrix p - for all sessions together
+            for i in range(0, self.k):
+                for j in range(0, self.k):
+                    p[i,j] = zeta[:,i,j].sum()/zeta[:,i,:].sum() # closed form update
+        
+            # check if stopping early 
+            if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
+                break
+
+        return p, w, ll
+
+        

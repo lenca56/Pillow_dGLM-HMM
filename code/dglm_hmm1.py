@@ -1,8 +1,5 @@
 # importing packages and modules
-import pandas as pd 
 import numpy as np
-from pathlib import Path
-import matplotlib.pyplot as plt
 import scipy.stats as stats
 from scipy.optimize import minimize
 from utils import *
@@ -75,11 +72,11 @@ class dGLM_HMM1():
             
         Returns
         -------
-        x: n x d
+        x: n x d numpy array
             simulated design matrix
-        y: n x 1
+        y: n x 1 numpy array
             simulated observation vector
-        z: n x 1
+        z: n x 1 numpy array
             simulated hidden states vector
 
         '''
@@ -305,5 +302,64 @@ class dGLM_HMM1():
             raise Exception("Weight distribution can only be uniform or normal")
 
         return p, w 
+    
+    def weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        '''
+        weight loss function to optimize the weight in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        L(currentW) = sum_t sum_k gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
+        Parameters
+        ----------
+        currentW: k x d numpy array
+            weights of current session for C=0
+        x: T x d numpy array
+            input matrix
+        y : T x 1 numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T x k numpy array
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: k x d x c numpy array
+            weights of previous session
+        nextW: k x d x c numpy array
+            weights of next session
+        sigma: k x d numpy array
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -ll: float
+            loss function for currentW to be minimized
+        '''
+        # number of datapoints
+        T = x.shape[0]
+
+        # reshaping current session weights from flat to (T, k, d, c)
+        currentW = currentW.reshape((self.k, self.d))
+        sessW = np.zeros((T, self.k, self.d, self.c))
+        for t in range(0,T):
+            sessW[t,:,:,0] = currentW[:,:]
+
+        phi = self.observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
+        logPhi = np.log(phi) # natural log of observation probabilities
+
+        # weighted log likelihood term of loss function
+        ll = 0
+        for t in range(0, T):
+            ll += np.multiply(gamma[t,:],logPhi[t,:,y[t]]).sum()
+        
+        # prior term for drifting of loss function
+        # currentW | prevW ~ Normal(prevW, sigma^2) and currentW | nextW ~ Normal(nextW, sigma^2)
+        for k in range(0, self.k):
+            if (prevW is not None):
+                rv = multivariate_normal(mean=prevW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
+                ll += np.log(rv.pdf(currentW[k,:]))   
+            if (nextW is not None):
+                rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
+                ll += np.log(rv.pdf(currentW[k,:]))
+                
+        return -ll
 
     

@@ -4,6 +4,7 @@ import scipy.stats as stats
 from scipy.optimize import minimize
 from utils import *
 from scipy.stats import multivariate_normal
+from sklearn.model_selection import KFold
 
 class dGLM_HMM1():
     """
@@ -217,7 +218,7 @@ class dGLM_HMM1():
 
         Parameters
         ----------
-        y : Tx1 numpy vector 
+        y : T x 1 numpy vector 
             vector of observations with values 0,1,..,C-1
         p : k x k numpy array
             matrix of transition probabilities
@@ -457,5 +458,66 @@ class dGLM_HMM1():
                 break
 
         return p, w, ll
+    
+    def split_data(self, x, y, sessInd, folds=10, random_state=1):
+        ''' 
+        splitting data function for cross-validation
+        currently does not balance trials for each session
+
+        Parameters
+        ----------
+        x: n x d numpy array
+            full design matrix
+        y : n x 1 numpy vector 
+            full vector of observations with values 0,1,..,C-1
+        sessInd: list of int
+            indices of each session start, together with last session end + 1
+
+        Returns
+        -------
+        trainX: folds x train_size x d numpy array
+            trainX[i] has train data of i-th fold
+        trainY: folds x train_size  numpy array
+            trainY[i] has train data of i-th fold
+        trainSessInd: list of lists
+            trainSessInd[i] have session start indices for the i-th fold of the train data
+        testX: folds x test_size x d numpy array
+            testX[i] has test data of i-th fold
+        testY: folds x test_size  numpy array
+            testY[i] has test data of i-th fold
+        testSessInd: list of lists
+            testSessInd[i] have session start indices for the i-th fold of the test data
+        '''
+        # initializing test and train size based on number of folds
+        train_size = int(self.n - self.n/folds)
+        test_size = int(self.n/folds)
+
+        # initializing input and output arrays for each folds
+        trainY = np.zeros((folds, train_size))
+        testY = np.zeros((folds, test_size))
+        trainX = np.zeros((folds, train_size, self.d))
+        testX = np.zeros((folds, test_size, self.d))
+
+        # splitting data for each fold
+        kf = KFold(n_splits=folds, shuffle=True, random_state=random_state)
+        for i, (train_index, test_index) in enumerate(kf.split(y)):
+            trainY[i,:], testY[i,:] = y[train_index], y[test_index]
+            trainX[i,:,:], testX[i,:,:] = x[train_index], x[test_index]
+        
+        # initializing session indices for each fold
+        trainSessInd = [[0] for i in range(0, folds)]
+        testSessInd = [[0] for i in range(0, folds)]
+
+        # getting sesssion start indices for each fold
+        for i, (train_index, test_index) in enumerate(kf.split(y)):
+            for sess in range(1,len(sessInd)-1):
+                testSessInd[i].append(np.argmin(test_index < sessInd[sess]))
+                trainSessInd[i].append(np.argmin(train_index < sessInd[sess]))
+            testSessInd[i].append(test_index.shape[0])
+            trainSessInd[i].append(train_index.shape[0])
+        
+        return trainX, trainY, trainSessInd, testX, testY, testSessInd
+
+  
 
         

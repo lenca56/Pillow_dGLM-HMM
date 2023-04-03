@@ -423,7 +423,6 @@ class dGLM_HMM1():
         ll = np.zeros((maxIter)).astype(float) 
 
         for iter in range(maxIter):
-            print(iter)
             
             # calculate observation probabilities given theta_old
             phi = self.observation_probability(x, w)

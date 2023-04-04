@@ -52,6 +52,40 @@ def reshapeSigma(sigma, K, D):
 
     return newSigma
 
+def reshapeWeights(w, oldSessInd, newSessInd):
+    ''' 
+    reshaping weights from session indices of oldSessInd to session indices of newSessInd
+
+    Parameters
+    ----------
+    w: T x k x d x c numpy array
+            true weight matrix. for c=2, trueW[:,:,:,1] = 0 
+    oldSessInd: list of int
+        old indices of each session start, together with last session end + 1
+    newSessInd: list of int
+        new indices of each session start, together with last session end + 1
+            
+    Returns
+    -------
+    reshapedW: newT x k x d x c
+    '''
+    T = w.shape[0]
+    k = w.shape[1]
+    d = w.shape[2]
+    c = w.shape[3]
+    if (T != oldSessInd[-1]):
+        raise Exception ("Indices and weights do not match in size")
+    if (len(oldSessInd) != len(newSessInd)):
+        raise Exception ("old and new indices don't have the same number of sessions")
+    
+    newT = newSessInd[-1]
+    reshapedW = np.zeros((newT, k, d, c))
+    for sess in range(0,len(oldSessInd)-1):
+        reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,0] = w[oldSessInd[sess],:,:,0]
+    
+    return reshapedW
+    
+
 def accuracy(x,y,z,s):
     '''
     Calculates and plots percentage accuracy (given X and Y) and percentage accuracy in state 0 (given Z)

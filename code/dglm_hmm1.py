@@ -140,12 +140,12 @@ class dGLM_HMM1():
             distribution of first state before it has sesn any data 
         Returns
         -------
-        ll : float
-            marginal log-likelihood of the data p(y)
         alpha : T x k numpy vector
             matrix of the conditional probabilities p(z_t|x_{1:t},y_{1:t})
         ct : T x 1 numpy vector
             vector of the forward marginal likelihoods p(y_t | y_1:t-1)
+        ll : float
+            marginal log-likelihood of the data p(y)
         '''
         T = y.shape[0]
         
@@ -274,16 +274,17 @@ class dGLM_HMM1():
         ----------
         p: k x k numpy array
             probability transition matrix
-        w: n x k x d x c numpy array
+        w: T x k x d x c numpy array
             weight matrix. for c=2, trueW[:,:,:,1] = 0 
         
         '''
+        T = int(sessInd[-1])
 
         sess = len(sessInd)-1 # number of total sessions
 
         # initialize weight and transitions
         p = np.empty((self.k, self.k))
-        w = np.zeros((self.n, self.k, self.d, self.c))
+        w = np.zeros((T, self.k, self.d, self.c))
 
         # generating transition matrix 
         if (transitionDistribution[0] == 'dirichlet'):
@@ -402,14 +403,16 @@ class dGLM_HMM1():
         -------
         p: k x k numpy array
             fitted probability transition matrix
-        w: n x k x d x c numpy array
+        w: T x k x d x c numpy array
             fitteed weight matrix
         ll: float
             marginal log-likelihood of the data p(y)
         '''
+        # number of datapoints
+        T = x.shape[0]
 
         if sessInd is None:
-            sessInd = [0,self.n]
+            sessInd = [0, T]
             sess = 1 # equivalent to saying the entire data set has one session
         else:
             sess = len(sessInd)-1 # total number of sessions 
@@ -419,7 +422,7 @@ class dGLM_HMM1():
         p = np.copy(initP)
 
         # initialize zeta = joint posterior of successive latents 
-        zeta = np.zeros((self.n-1, self.k, self.k)).astype(float) 
+        zeta = np.zeros((T-1, self.k, self.k)).astype(float) 
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
 
@@ -493,8 +496,8 @@ class dGLM_HMM1():
         test_size = int(self.n/folds)
 
         # initializing input and output arrays for each folds
-        trainY = np.zeros((folds, train_size))
-        testY = np.zeros((folds, test_size))
+        trainY = np.zeros((folds, train_size)).astype(int)
+        testY = np.zeros((folds, test_size)).astype(int)
         trainX = np.zeros((folds, train_size, self.d))
         testX = np.zeros((folds, test_size, self.d))
 

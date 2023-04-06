@@ -361,14 +361,25 @@ class dGLM_HMM1():
         
         # prior term for drifting of loss function
         # currentW | prevW ~ Normal(prevW, sigma^2) and currentW | nextW ~ Normal(nextW, sigma^2)
+        # for k in range(0, self.k):
+        #     if (prevW is not None):
+        #         rv = multivariate_normal(mean=prevW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
+        #         lf += np.log(rv.pdf(currentW[k,:]))   
+        #     if (nextW is not None):
+        #         rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
+        #         lf += np.log(rv.pdf(currentW[k,:]))
+
         for k in range(0, self.k):
+            det = np.prod(np.square(sigma[k,:]))
+            cov=np.diag(np.square(sigma[k,:]))
+            invCov = np.linalg.inv(np.diag(np.square(sigma[k,:])))
             if (prevW is not None):
-                rv = multivariate_normal(mean=prevW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-                lf += np.log(rv.pdf(currentW[k,:]))   
+                # logpdf of multivariate normal (ignoring pi constant)
+                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).transpose() @ invCov @ (currentW[k,:] - prevW[k,:,0])
             if (nextW is not None):
-                rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-                lf += np.log(rv.pdf(currentW[k,:]))
-                
+                # logpdf of multivariate normal (ignoring pi constant)
+                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).transpose() @ invCov @ (currentW[k,:] - nextW[k,:,0])
+            
         return -lf
     
     def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):

@@ -3,8 +3,11 @@ import numpy as np
 import scipy.stats as stats
 from scipy.optimize import minimize
 from utils import *
+from plotting_utils import *
 from scipy.stats import multivariate_normal
 from sklearn.model_selection import KFold
+# from autograd import value_and_grad, hessian
+import jax
 
 class dGLM_HMM1():
     """
@@ -53,6 +56,34 @@ class dGLM_HMM1():
             phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
 
         return phi
+
+    # def log_observation_probability(self, x, w):
+    #     '''
+    #     Calculating log observation probabilities for given design matrix x and weight matrix w
+
+    #     Parameters
+    #     ----------
+    #     x: Ncurrent x D numpy array
+    #         input matrix
+    #     w: Ncurrent x K x D x C numpy array
+    #         weight matrix
+
+    #     Returns
+    #     -------
+    #     phi: Ncurrent x K x C numpy array
+    #         observation probabilities matrix
+    #     '''
+        
+    #     Ncurrent = x.shape[0]
+
+    #     phi = np.empty((Ncurrent, self.k, self.c)) # probability that it is state 1
+    #     for k in range(0, self.k):
+    #         for c in range(0, self.c):
+    #             phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
+    #         phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
+
+    #     return phi
+    
     
     def simulate_data(self, trueW, trueP, sessInd, save=False, pi0=0.5):
         '''
@@ -101,12 +132,19 @@ class dGLM_HMM1():
         x[:,1] = x[:,1] - x[:,1].mean()
         x[:,1] = x[:,1] / x[:,1].std()
 
-        # latent variables z 
-        for t in range(0, self.n):
-            if (t in sessInd[:-1]): # beginning of session has a new draw for latent
-                z[t] = np.random.binomial(n=1,p=1-pi0)
-            else:
-                z[t] = np.random.binomial(n=1, p=trueP[z[t-1],1])
+        # TRY ormal distribution for x[:,1]
+
+        if (self.k==1):
+            z[:] = 0
+        elif (self.k ==2):
+            # latent variables z 
+            for t in range(0, self.n):
+                if (t in sessInd[:-1]): # beginning of session has a new draw for latent
+                    z[t] = np.random.binomial(n=1,p=1-pi0)
+                else:
+                    z[t] = np.random.binomial(n=1, p=trueP[z[t-1],1])
+        elif (self.k >=3):
+            raise Exception("simulate data does not support k>=3")
         
         # observation probabilities
         phi = self.observation_probability(x, trueW)
@@ -346,6 +384,7 @@ class dGLM_HMM1():
         T = x.shape[0]
 
         # reshaping current session weights from flat to (T, k, d, c)
+        # currentW = currentW._value.reshape((self.k, self.d))
         currentW = currentW.reshape((self.k, self.d))
         sessW = np.zeros((T, self.k, self.d, self.c))
         for t in range(0,T):
@@ -358,6 +397,7 @@ class dGLM_HMM1():
         lf = 0
         for t in range(0, T):
             lf += np.multiply(gamma[t,:],logPhi[t,:,y[t]]).sum()
+        #print("Gamma term ",lf)
         
         # prior term for drifting of loss function
         # currentW | prevW ~ Normal(prevW, sigma^2) and currentW | nextW ~ Normal(nextW, sigma^2)
@@ -371,15 +411,19 @@ class dGLM_HMM1():
 
         for k in range(0, self.k):
             det = np.prod(np.square(sigma[k,:]))
-            cov=np.diag(np.square(sigma[k,:]))
             invCov = np.linalg.inv(np.diag(np.square(sigma[k,:])))
             if (prevW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).transpose() @ invCov @ (currentW[k,:] - prevW[k,:,0])
+                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
+                #print("Prev sess term ", 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0]))
             if (nextW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).transpose() @ invCov @ (currentW[k,:] - nextW[k,:,0])
+                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
+                #print("Next sess term ", 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0]))
             
+            # penalty term for size of weights
+            # lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+
         return -lf
     
     def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
@@ -437,6 +481,8 @@ class dGLM_HMM1():
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
 
+        #plotting_weights(initW, sessInd, 'initial weights')
+
         for iter in range(maxIter):
             
             # calculate observation probabilities given theta_old
@@ -455,13 +501,29 @@ class dGLM_HMM1():
                 ll[iter] += llSess
                 
                 # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
-                w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
                 prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
                 nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
+                w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
                 optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
                 optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
                 w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
-                
+
+                # optimizedW = np.zeros((self.k,self.d,self.c))
+                # # prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
+                # # nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
+                # # optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
+                # for k in range(0, self.k):
+                #     prevW = w[sessInd[s-1],k,:,:] if s!=0 else None # k x d x c matrix of previous session weights
+                #     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None # k x d x c matrix of next session weights
+                #     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,0]) # flatten weights for optimization 
+                #     opt_log = lambda w: self.weight_loss_function_one_state(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k]) # calculate log likelihood 
+                #     optimized = minimize(value_and_grad(opt_log), w_flat) # , jac = "True", method = "L-BFGS-B")
+                #     optimizedW[k,:,0] = np.reshape(optimized.x,(1, self.d)) # reshape optimized weights
+                # w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+            
+            #plotting_weights(w, sessInd, f'iter {iter} optimized')
+            # print(w[sessInd[:-1]])
+
             # M-step for transition matrix p - for all sessions together
             for i in range(0, self.k):
                 for j in range(0, self.k):

@@ -85,7 +85,7 @@ class dGLM_HMM1():
     #     return phi
     
     
-    def simulate_data(self, trueW, trueP, sessInd, save=False, pi0=0.5):
+    def simulate_data(self, trueW, trueP, sessInd, save=False, title='sim', pi0=0.5):
         '''
         function that simulates X and Y data from true weights and true transition matrix
 
@@ -155,9 +155,9 @@ class dGLM_HMM1():
         y = reshapeObs(y) # reshaping from n x c to n x 1
 
         if (save==True):
-            np.save('../data/simX', x)
-            np.save('../data/simY', y)
-            np.save('../data/simZ', z)
+            np.save(f'../data/{title}X', x)
+            np.save(f'../data/{title}Y', y)
+            np.save(f'../data/{title}Z', z)
 
         return x, y, z
 
@@ -422,7 +422,7 @@ class dGLM_HMM1():
                 #print("Next sess term ", 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0]))
             
             # penalty term for size of weights
-            # lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+            lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
         return -lf
     

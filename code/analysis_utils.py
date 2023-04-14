@@ -8,6 +8,7 @@ from utils import *
 from plotting_utils import *
 import dglm_hmm1
 from scipy.stats import multivariate_normal, norm
+import seaborn as sns
 
 def fit_multiple_sigmas(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):
     ''' 
@@ -24,6 +25,7 @@ def fit_multiple_sigmas(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,10
  
     for init in range(0,inits):
         for indSigma in range(0,len(sigmaList)): 
+            print(indSigma)
             if (indSigma == 0): 
                 initP, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
             else:
@@ -70,7 +72,7 @@ def evaluate_multiple_sigmas(N,K,D,C, trainSessInd=None, testSessInd=None, sigma
                 _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]],allP[init, indSigma],testPhi[testSessInd[s]:testSessInd[s+1]])
                 testLl[init, indSigma] += temp
     
-    testLl = testLl / N # normalizing to the total number of trials
+    testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test
 
     if(save==True):
         np.save(f'../data/testtLl_N={N}_{K}_state_{modelType}', testLl)
@@ -82,16 +84,51 @@ def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=Fals
     function for plotting the test LL vs sigma scalars
     '''
     inits = testLl.shape[0]
-
+    colormap = sns.color_palette("viridis")
     for init in range(0,inits):
         axes.set_title(title)
         #for indSigma in range(0, len(sigmaList)):
-        axes.scatter(np.log(sigmaList[:]), testLl[init,:], color='gray')
+        axes.scatter(np.log(sigmaList[:]), testLl[init,:], color=colormap[init])
         axes.set_ylabel("Test LL (per trial)")
         axes.set_xticks(np.log(sigmaList),[f'log({sigma})' for sigma in sigmaList])
         axes.set_xlabel("Log(sigma)")
-        axes.scatter(np.log(sigmaList[-1]), testLl[init,-1], color='gray',label=label)
+        axes.scatter(np.log(sigmaList[-1]), testLl[init,-1], color=colormap[init],label=f'{init} {label}')
         axes.legend()
 
     if(save_fig==True):
         plt.savefig(f'../figures/{title}', bbox_inches='tight', dpi=300)
+
+def accuracy(x,y,z,s):
+    '''
+    Calculates and plots percentage accuracy (given X and Y) and percentage accuracy in state 0 (given Z)
+
+    X: N x D numpy array
+    Y: N x 1 numpy array
+    s: int
+        number of sessions
+    '''
+    n = x.shape[0]
+    perf = np.zeros((s,))
+    trials = int(n/s)
+    state0 = np.empty((s,))
+    ind = []
+    for sess in range(0,s):
+        state0[sess] = trials - z[sess*trials:(sess+1)*trials].sum()
+        for t in range(0,trials):
+            if (x[sess*trials+t,1]>0 and y[sess*trials+t,1]==1):
+                perf[sess]+=1
+            elif (x[sess*trials+t,1]<0 and y[sess*trials+t,0]==1):
+                perf[sess]+=1
+            else:
+                ind.append(sess*trials+t)
+
+    perf = perf / trials # normalize to number of trials per session
+    state0 = state0 / trials
+    plt.plot(range(0,s),state0*100,marker='o',color='darkgray',label='in state 0')
+    plt.plot(range(0,s),perf*100,marker='o',label="accurracy")
+    plt.ylabel("percentage %")
+    plt.xlabel("sesion")
+    plt.legend(fontsize='small')
+    plt.show()
+
+    return perf, ind

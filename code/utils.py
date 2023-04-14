@@ -84,39 +84,20 @@ def reshapeWeights(w, oldSessInd, newSessInd):
         reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,0] = w[oldSessInd[sess],:,:,0]
     
     return reshapedW
+
+
+def permute_states(w, sessInd):
+    ''' 
+    decreasing order acording drift of sensory across consecutive sessions
+    '''
+    k = w.shape[1]
+    sess = len(sessInd)-1
+    driftState = np.zeros((k,))
+    for s in range(0,sess-1):
+        for i in range(0,k):
+            driftState[i]+= abs(w[sessInd[s+1],i,1,0] - w[sessInd[s],i,1,0]) # not sure about the scale
+    sortedInd = list(np.argsort(driftState))
+    sortedInd.reverse() # decreasing order
     
-
-def accuracy(x,y,z,s):
-    '''
-    Calculates and plots percentage accuracy (given X and Y) and percentage accuracy in state 0 (given Z)
-
-    X: N x D numpy array
-    Y: N x 1 numpy array
-    s: int
-        number of sessions
-    '''
-    n = x.shape[0]
-    perf = np.zeros((s,))
-    trials = int(n/s)
-    state0 = np.empty((s,))
-    ind = []
-    for sess in range(0,s):
-        state0[sess] = trials - z[sess*trials:(sess+1)*trials].sum()
-        for t in range(0,trials):
-            if (x[sess*trials+t,1]>0 and y[sess*trials+t,1]==1):
-                perf[sess]+=1
-            elif (x[sess*trials+t,1]<0 and y[sess*trials+t,0]==1):
-                perf[sess]+=1
-            else:
-                ind.append(sess*trials+t)
-
-    perf = perf / trials # normalize to number of trials per session
-    state0 = state0 / trials
-    plt.plot(range(0,s),state0*100,marker='o',color='darkgray',label='in state 0')
-    plt.plot(range(0,s),perf*100,marker='o',label="accurracy")
-    plt.ylabel("percentage %")
-    plt.xlabel("sesion")
-    plt.legend(fontsize='small')
-    plt.show()
-
-    return perf, ind
+    return w[:,sortedInd,:,:]
+    

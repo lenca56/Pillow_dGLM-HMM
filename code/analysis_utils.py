@@ -92,7 +92,7 @@ def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=Fals
         axes.set_ylabel("Test LL (per trial)")
         axes.set_xticks(np.log(sigmaList),[f'log({sigma})' for sigma in sigmaList])
         axes.set_xlabel("Log(sigma)")
-        axes.scatter(np.log(sigmaList[-1]), testLl[init,-1], color=colormap[init],label=f'{init} {label}')
+        axes.scatter(np.log(sigmaList[-1]), testLl[init,-1], color=colormap[init],label=f'init {init} - {label}')
         axes.legend()
 
     if(save_fig==True):

@@ -488,6 +488,7 @@ class dGLM_HMM1():
         #plotting_weights(initW, sessInd, 'initial weights')
 
         for iter in range(maxIter):
+            print(iter)
 
             # first iteration is without the drifting prior to speed up solution finding
             if(iter==0):

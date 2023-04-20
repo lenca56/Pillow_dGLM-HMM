@@ -9,6 +9,7 @@ from plotting_utils import *
 import dglm_hmm1
 from scipy.stats import multivariate_normal, norm
 import seaborn as sns
+from sklearn.model_selection import KFold
 
 def fit_multiple_sigmas(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):
     ''' 

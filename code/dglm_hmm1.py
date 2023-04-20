@@ -350,7 +350,7 @@ class dGLM_HMM1():
 
         return p, w 
     
-    def weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, prior=True):
+    def weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         '''
         weight loss function to optimize the weight in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -408,24 +408,23 @@ class dGLM_HMM1():
         #     if (nextW is not None):
         #         rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
         #         lf += np.log(rv.pdf(currentW[k,:]))
+        for k in range(0, self.k):
+            # sigma=0 together with session indices [0,N] means usual GLM-HMM
+            # inverse of covariance matrix
+            invSigma = np.square(1/sigma[k,:])
+            det = np.prod(invSigma)
+            invCov = np.diag(invSigma)
 
-        if(prior==True):
-            for k in range(0, self.k):
-                # inverse of covariance matrix
-                invSigma = np.square(1/sigma[k,:])
-                det = np.prod(invSigma)
-                invCov = np.diag(invSigma)
-
-                if (prevW is not None):
-                    # logpdf of multivariate normal (ignoring pi constant)
-                    lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
-                    #print("Prev sess term ", 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0]))
-                if (nextW is not None):
-                    # logpdf of multivariate normal (ignoring pi constant)
-                    lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
-                    #print("Next sess term ", 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0]))
-                
-            # penalty term for size of weights
+            if (prevW is not None):
+                # logpdf of multivariate normal (ignoring pi constant)
+                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
+                #print("Prev sess term ", 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0]))
+            if (nextW is not None):
+                # logpdf of multivariate normal (ignoring pi constant)
+                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
+                #print("Next sess term ", 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0]))
+                    
+            # penalty term for size of weights - NOT NECESSARY FOR NOW
             #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
         return -lf
@@ -488,13 +487,6 @@ class dGLM_HMM1():
         #plotting_weights(initW, sessInd, 'initial weights')
 
         for iter in range(maxIter):
-            print(iter)
-
-            # first iteration is without the drifting prior to speed up solution finding
-            if(iter==0):
-                prior=False
-            else:
-                prior=True
             
             # calculate observation probabilities given theta_old
             phi = self.observation_probability(x, w)
@@ -515,7 +507,7 @@ class dGLM_HMM1():
                 prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
                 nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
                 w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
-                optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma, prior))
+                optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
                 optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
                 w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
 

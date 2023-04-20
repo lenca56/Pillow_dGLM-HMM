@@ -22,19 +22,25 @@ def fit_multiple_sigmas(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,10
     allLl = np.zeros((inits, len(sigmaList), maxiter))
     allP = np.zeros((inits, len(sigmaList), K,K))
     allW = np.zeros((inits, len(sigmaList),N,K,D,C))
+
+    oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
  
     for init in range(0,inits):
         for indSigma in range(0,len(sigmaList)): 
             print(indSigma)
             if (indSigma == 0): 
-                initP, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
+                if(sigmaList[0] == 0):
+                    initP0, initW0 = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+                    allP[init, indSigma],  allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=300, tol=1e-4) # sigma does not matter here
+                else:
+                    initP, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
             else:
                 initP = allP[init, indSigma-1] 
                 initW = allW[init, indSigma-1] 
             
-            print(indSigma)
-            # fit on whole dataset
-            allP[init, indSigma],  allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, pi0=None, maxIter=maxiter, tol=1e-3) # fit the model
+            if(sigmaList[indSigma] != 0):
+                # fit on whole dataset
+                allP[init, indSigma],  allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, pi0=None, maxIter=maxiter, tol=1e-3) # fit the model
                 
     if(save==True):
         np.save(f'../data/Ll_N={N}_{K}_state_{modelType}', allLl)
@@ -78,25 +84,6 @@ def evaluate_multiple_sigmas(N,K,D,C, trainSessInd=None, testSessInd=None, sigma
         np.save(f'../data/testtLl_N={N}_{K}_state_{modelType}', testLl)
     
     return testLl
-
-def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=False):
-    ''' 
-    function for plotting the test LL vs sigma scalars
-    '''
-    inits = testLl.shape[0]
-    colormap = sns.color_palette("viridis")
-    for init in range(0,inits):
-        axes.set_title(title)
-        #for indSigma in range(0, len(sigmaList)):
-        axes.scatter(np.log(sigmaList[:]), testLl[init,:], color=colormap[init])
-        axes.set_ylabel("Test LL (per trial)")
-        axes.set_xticks(np.log(sigmaList),[f'log({sigma})' for sigma in sigmaList])
-        axes.set_xlabel("Log(sigma)")
-        axes.scatter(np.log(sigmaList[-1]), testLl[init,-1], color=colormap[init],label=f'init {init} - {label}')
-        axes.legend()
-
-    if(save_fig==True):
-        plt.savefig(f'../figures/{title}', bbox_inches='tight', dpi=300)
 
 def accuracy(x,y,z,s):
     '''

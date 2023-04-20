@@ -5,6 +5,7 @@ import math
 import pickle
 import matplotlib.pyplot as plt
 import scipy.stats as stats
+import seaborn as sns
 from scipy.optimize import minimize
 from utils import *
 from scipy.stats import multivariate_normal
@@ -60,4 +61,27 @@ def plotting_weights(w, sessInd, trueW=None, title=''):
         plt.legend()
         #plt.legend(fontsize='xx-small')
         plt.show()
+
+def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=False):
+    ''' 
+    function for plotting the test LL vs sigma scalars
+    '''
+    inits = testLl.shape[0]
+    colormap = sns.color_palette("viridis")
+    for init in range(0,inits):
+        axes.set_title(title)
+        axes.scatter(np.log(sigmaList[1:]), testLl[init,1:], color=colormap[init])
+        axes.plot(np.log(sigmaList[1:]), testLl[init,1:], color=colormap[init])
+        if(sigmaList[0]==0):
+            axes.scatter(-1 + np.log(sigmaList[1]), testLl[init,0], color=colormap[init], label=f'init {init}')
+            axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+        else:
+            axes.scatter(np.log(sigmaList[0]), testLl[init,0], color=colormap[init], label=f'init {init}')
+            axes.set_xticks([np.log(sigmaList)],[f'{np.round(sigma,2)}' for sigma in sigmaList])
+        axes.set_ylabel("Test LL (per trial)")
+        axes.set_xlabel("sigma")
+        #axes.legend()
+
+    if(save_fig==True):
+        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}', bbox_inches='tight', dpi=300)
     

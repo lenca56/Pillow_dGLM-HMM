@@ -56,34 +56,6 @@ class dGLM_HMM1():
             phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
 
         return phi
-
-    # def log_observation_probability(self, x, w):
-    #     '''
-    #     Calculating log observation probabilities for given design matrix x and weight matrix w
-
-    #     Parameters
-    #     ----------
-    #     x: Ncurrent x D numpy array
-    #         input matrix
-    #     w: Ncurrent x K x D x C numpy array
-    #         weight matrix
-
-    #     Returns
-    #     -------
-    #     phi: Ncurrent x K x C numpy array
-    #         observation probabilities matrix
-    #     '''
-        
-    #     Ncurrent = x.shape[0]
-
-    #     phi = np.empty((Ncurrent, self.k, self.c)) # probability that it is state 1
-    #     for k in range(0, self.k):
-    #         for c in range(0, self.c):
-    #             phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
-    #         phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
-
-    #     return phi
-    
     
     def simulate_data(self, trueW, trueP, sessInd, save=False, title='sim', pi0=0.5):
         '''
@@ -397,17 +369,7 @@ class dGLM_HMM1():
         lf = 0
         for t in range(0, T):
             lf += np.multiply(gamma[t,:],logPhi[t,:,y[t]]).sum()
-        #print("Gamma term ",lf)
         
-        # prior term for drifting of loss function
-        # currentW | prevW ~ Normal(prevW, sigma^2) and currentW | nextW ~ Normal(nextW, sigma^2)
-        # for k in range(0, self.k):
-        #     if (prevW is not None):
-        #         rv = multivariate_normal(mean=prevW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-        #         lf += np.log(rv.pdf(currentW[k,:]))   
-        #     if (nextW is not None):
-        #         rv = multivariate_normal(mean=nextW[k,:,0], cov=np.diag(np.square(sigma[k,:])), allow_singular=True)
-        #         lf += np.log(rv.pdf(currentW[k,:]))
         for k in range(0, self.k):
             # sigma=0 together with session indices [0,N] means usual GLM-HMM
             # inverse of covariance matrix
@@ -418,12 +380,10 @@ class dGLM_HMM1():
             if (prevW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
                 lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
-                #print("Prev sess term ", 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0]))
             if (nextW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
                 lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
-                #print("Next sess term ", 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0]))
-                    
+                   
             # penalty term for size of weights - NOT NECESSARY FOR NOW
             #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 

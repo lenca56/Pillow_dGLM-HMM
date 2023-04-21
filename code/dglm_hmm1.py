@@ -7,7 +7,7 @@ from plotting_utils import *
 from scipy.stats import multivariate_normal
 from sklearn.model_selection import KFold
 # from autograd import value_and_grad, hessian
-import jax
+# import jax
 
 class dGLM_HMM1():
     """

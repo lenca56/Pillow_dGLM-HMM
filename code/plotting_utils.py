@@ -113,6 +113,6 @@ def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, ti
     axes.legend()
 
     if(save_fig==True):
-        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}', bbox_inches='tight', dpi=300)
+        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}.png', bbox_inches='tight', dpi=300)
 
     

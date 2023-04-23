@@ -74,7 +74,10 @@ def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=Fals
         axes.plot(np.log(sigmaList[1:]), testLl[init,1:], color=colormap[init])
         if(sigmaList[0]==0):
             axes.scatter(-1 + np.log(sigmaList[1]), testLl[init,0], color=colormap[init], label=f'init {init}')
-            axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+            if (K==1):
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+            else:
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
         else:
             axes.scatter(np.log(sigmaList[0]), testLl[init,0], color=colormap[init], label=f'init {init}')
             axes.set_xticks([np.log(sigmaList)],[f'{np.round(sigma,2)}' for sigma in sigmaList])
@@ -84,4 +87,32 @@ def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=Fals
 
     if(save_fig==True):
         plt.savefig(f'../figures/Sigma_vs_TestLl-{title}', bbox_inches='tight', dpi=300)
+    
+def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, title='', save_fig=False):
+    ''' 
+    function for plotting the test LL vs sigma scalars for PWM real data
+    '''     
+    
+    colormap = sns.color_palette("viridis")
+    for fold in range(0, folds):
+        testLl = np.load(f'../data/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas.npy')
+        axes.set_title(title)
+        axes.scatter(np.log(sigmaList[1:]), testLl[1:], color=colormap[fold])
+        axes.plot(np.log(sigmaList[1:]), testLl[1:], color=colormap[fold])
+        if(sigmaList[0]==0):
+            axes.scatter(-1 + np.log(sigmaList[1]), testLl[0], color=colormap[fold], label=f'fold {fold}')
+            if (K==1):
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+            else:
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+        else:
+            axes.scatter(np.log(sigmaList[0]), testLl[0], color=colormap[fold], label=f'fold {fold}')
+            axes.set_xticks([np.log(sigmaList)],[f'{np.round(sigma,2)}' for sigma in sigmaList])
+        axes.set_ylabel("Test LL (per trial)")
+        axes.set_xlabel("sigma")
+    axes.legend()
+
+    if(save_fig==True):
+        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}', bbox_inches='tight', dpi=300)
+
     

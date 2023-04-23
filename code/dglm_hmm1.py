@@ -470,7 +470,7 @@ class dGLM_HMM1():
                 optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
                 optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
                 w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
-
+                
                 # optimizedW = np.zeros((self.k,self.d,self.c))
                 # # prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
                 # # nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights

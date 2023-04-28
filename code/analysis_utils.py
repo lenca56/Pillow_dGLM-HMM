@@ -147,7 +147,7 @@ def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=N
     testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test
 
     if(save==True):
-        np.save(f'../data/testtLl_N={N}_{K}_state_{modelType}', testLl)
+        np.save(f'../data/testLl_N={N}_{K}_state_{modelType}', testLl)
     
     return testLl
 

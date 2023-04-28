@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 from utils import *
 from scipy.stats import multivariate_normal
 
-def plotting_weights(w, sessInd, trueW=None, title=''):
+def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
     ''' 
     Parameters
     __________
@@ -25,68 +25,74 @@ def plotting_weights(w, sessInd, trueW=None, title=''):
     sess = len(sessInd)-1
 
     if (w.shape[1]==2):
-        plt.plot(range(1,sess+1),w[sessInd[:-1],0,1,0],color='blue',marker='o',label='state 0 sensory')
-        plt.plot(range(1,sess+1),w[sessInd[:-1],0,0,0],color='dodgerblue',marker='o', label='state 0 bias')
-        plt.plot(range(1,sess+1),w[sessInd[:-1],1,1,0],color='darkred',marker='o',label='state 1 sensory')
-        plt.plot(range(1,sess+1),w[sessInd[:-1],1,0,0],color='indianred',marker='o',label='state 1 bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],0,1,0],color='blue',marker='o',label='state 1 sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],0,0,0],color='dodgerblue',marker='o', label='state 1 bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],1,1,0],color='darkred',marker='o',label='state 2 sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],1,0,0],color='indianred',marker='o',label='state 2 bias')
         
 
         if(trueW is not None):
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],0,1,0],color='blue',marker='o',linestyle='dashed', label='true sensory 0')
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],0,0,0],color='dodgerblue',marker='o',linestyle='dashed', label='true bias 0')
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],1,1,0],color='darkred',marker='o',linestyle='dashed', label='true sensory 1')
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],1,0,0],color='indianred',marker='o',linestyle='dashed', label='true bias 1')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],0,1,0],color='blue',marker='o',linestyle='dashed', label='true sensory 1')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],0,0,0],color='dodgerblue',marker='o',linestyle='dashed', label='true bias 1')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],1,1,0],color='darkred',marker='o',linestyle='dashed', label='true sensory 2')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],1,0,0],color='indianred',marker='o',linestyle='dashed', label='true bias 2')
             
-        plt.title(title)
-        plt.xticks(range(1,sess+1))
-        plt.ylabel("weights")
-        plt.title(title)
-        plt.xlabel('session')
-        plt.legend()
+        axes.set_title(title)
+        axes.set_xticks(range(1,sess+1))
+        axes.set_ylabel("weights")
+        axes.set_xlabel('session')
+        axes.legend()
         #plt.legend(fontsize='xx-small')
-        plt.show()
     elif (w.shape[1]==1):
-        plt.plot(range(1,sess+1),w[sessInd[:-1],0,1,0],color='blue',marker='o',label='state 0 sensory')
-        plt.plot(range(1,sess+1),w[sessInd[:-1],0,0,0],color='dodgerblue',marker='o', label='state 0 bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],0,1,0],color='blue',marker='o',label='state 1 sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],0,0,0],color='dodgerblue',marker='o', label='state 1 bias')
         
         if(trueW is not None):
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],0,1,0],color='blue',linestyle='dashed', label='true sensory')
-            plt.plot(range(1,sess+1),trueW[sessInd[:-1],0,0,0],color='dodgerblue',linestyle='dashed', label='true bias')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],0,1,0],color='blue',linestyle='dashed', label='true sensory')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],0,0,0],color='dodgerblue',linestyle='dashed', label='true bias')
             
-        plt.title(title)
-        plt.xticks(range(1,sess+1))
-        plt.ylabel("weights")
-        plt.title(title)
-        plt.xlabel('session')
-        plt.legend()
+        axes.set_title(title)
+        axes.set_xticks(range(1,sess+1))
+        axes.set_ylabel("weights")
+        axes.set_xlabel('session')
+        axes.legend(loc='upper left')
         #plt.legend(fontsize='xx-small')
-        plt.show()
+    
+    if(save_fig==True):
+        plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def sigma_testLl_plot(sigmaList, testLl, axes, title='', label='', save_fig=False):
+def sigma_testLl_plot(K, sigmaList, testLl, axes, title='', labels=None, save_fig=False):
     ''' 
     function for plotting the test LL vs sigma scalars
     '''
-    inits = testLl.shape[0]
+    inits = testLl.shape[0] # for mutiple initiaizations/models 
     colormap = sns.color_palette("viridis")
+    sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
+    sigmaListOdd = [sigmaList[ind] for ind in range(len(sigmaList)-4) if ind%2==1] + [sigmaList[ind] for ind in range(17,len(sigmaList))]
+    flag = 0
+    if (labels is None):
+        labels = ['' for init in range(0,inits)]
+        flag = 1
     for init in range(0,inits):
         axes.set_title(title)
         axes.scatter(np.log(sigmaList[1:]), testLl[init,1:], color=colormap[init])
         axes.plot(np.log(sigmaList[1:]), testLl[init,1:], color=colormap[init])
         if(sigmaList[0]==0):
-            axes.scatter(-1 + np.log(sigmaList[1]), testLl[init,0], color=colormap[init], label=f'init {init}')
+            axes.scatter(-1 + np.log(sigmaList[1]), testLl[init,0], color=colormap[init], label=labels[init])
             if (K==1):
-                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM'] + [f'{np.round(sigma,3)}' for sigma in sigmaListOdd])
             else:
-                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaList[1:])),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList[1:]])
+                axes.set_xticks([-1 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaListOdd])
         else:
             axes.scatter(np.log(sigmaList[0]), testLl[init,0], color=colormap[init], label=f'init {init}')
-            axes.set_xticks([np.log(sigmaList)],[f'{np.round(sigma,2)}' for sigma in sigmaList])
-        axes.set_ylabel("Test LL (per trial)")
-        axes.set_xlabel("sigma")
-        #axes.legend()
+            axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma,2)}' for sigma in sigmaListEven])
+    axes.set_ylabel("Test LL (per trial)")
+    axes.set_xlabel("sigma")
+    if (flag == 0):
+        axes.legend()
 
     if(save_fig==True):
-        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}', bbox_inches='tight', dpi=300)
+        plt.savefig(f'../figures/Sigma_vs_TestLl-{title}.png', bbox_inches='tight', dpi=400)
     
 def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, title='', save_fig=False):
     ''' 

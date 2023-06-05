@@ -264,6 +264,34 @@ class dGLM_HMM1():
             
         return gamma, zeta
 
+    def get_states_in_time(self, x, y, w, p, sessInd=None):
+        ''' 
+        function that gets the distribution of states across trials/time-points after assigning the states with respective maximum probabilities
+        '''
+        T = x.shape[0]
+
+        if sessInd is None:
+            sessInd = [0, T]
+            sess = 1 # equivalent to saying the entire data set has one session
+        else:
+            sess = len(sessInd)-1 # total number of sessions 
+
+        # calculate observation probabilities given theta_old
+            phi = self.observation_probability(x, w)
+        
+        zStates = np.empty((T)).astype(int)
+
+        for s in range(0,sess):
+        # E step - forward and backward passes given theta_old (= previous w and p)
+            alphaSess, ctSess, _ = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:])
+            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
+            gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
+            
+            # assigning max probabiity state to trial
+            zStates[sessInd[s]:sessInd[s+1]] = np.argmax(gammaSess,axis=1)
+        
+        return zStates
+    
     def generate_param(self, sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]):
         ''' 
         Function that generates parameters w and P and is used for initialization of parameters during fitting

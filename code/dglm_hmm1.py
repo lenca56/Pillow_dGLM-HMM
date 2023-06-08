@@ -7,7 +7,8 @@ from plotting_utils import *
 from scipy.stats import multivariate_normal
 from sklearn.model_selection import KFold
 # from autograd import value_and_grad, hessian
-# import jax
+from jax import value_and_grad
+import jax.numpy as jnp
 
 class dGLM_HMM1():
     """
@@ -49,8 +50,16 @@ class dGLM_HMM1():
         
         Ncurrent = x.shape[0]
 
-        phi = np.empty((Ncurrent, self.k, self.c)) # probability that it is state 1
-        for k in range(0, self.k):
+        if (w.ndim == 3): # it means K=1
+            w = w.reshape((w.shape[0],1,w.shape[1],w.shape[2]))
+            K = 1
+        elif (w.ndim == 4): # K>=2
+            K = w.shape[1]
+        else:
+            raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
+
+        phi = np.empty((Ncurrent, K, self.c)) # probability that it is state 1
+        for k in range(0, K):
             for c in range(0, self.c):
                 phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
             phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
@@ -417,6 +426,69 @@ class dGLM_HMM1():
 
         return -lf
     
+    def value_and_grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        ''' 
+        weight loss function to optimize in M-step that also calculates gradient
+
+        for one state only
+
+        Parameters
+        ----------
+        currentW: d numpy vector
+            weights of current session for C=0 and one particular state
+        x: T x d numpy array
+            design matrix
+        y : T x 1 numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T x k numpy array
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: k x d x c numpy array
+            weights of previous session
+        nextW: k x d x c numpy array
+            weights of next session
+        sigma: k x d numpy array
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -lf: float
+            loss function for currentW to be minimized
+
+        '''
+
+        # number of datapoints
+        T = x.shape[0]
+
+        sessW = np.zeros((T, 1, self.d, self.c)) # K=1
+        for t in range(0,T):
+            sessW[t,0,:,0] = currentW[:]
+
+        phi = self.observation_probability(x, sessW) # N x 1 x C phi matrix calculated with currentW
+        logPhi = np.log(phi) # natural log of observation probabilities
+
+        # weighted log likelihood term of loss function
+        lf = 0
+        for t in range(0, T):
+            lf += gamma[t]*logPhi[t,0,y[t]] 
+
+        # sigma=0 together with session indices [0,N] means usual GLM-HMM
+        # inverse of covariance matrix
+        invSigma = np.square(1/sigma[:])
+        det = np.prod(invSigma)
+        invCov = np.diag(invSigma)
+
+        if (prevW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,0]).T @ invCov @ (currentW[:] - prevW[:,0])
+        if (nextW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,0]).T @ invCov @ (currentW[:] - nextW[:,0])
+                   
+        # penalty term for size of weights - NOT NECESSARY FOR NOW
+        #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+
+        return -lf
+    
     def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
@@ -495,12 +567,30 @@ class dGLM_HMM1():
                 ll[iter] += llSess
                 
                 # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
-                prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
-                nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
-                w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
-                optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
-                optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
-                w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+                # prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
+                # nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
+                
+                for k in range(0,self.k):
+                    prevW = w[sessInd[s-1],k,:,:] if s!=0 else None #  d x c matrix of previous session weights
+                    nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
+                    w_flat = np.ndarray.flatten(w[sessInd[s],k,:,0]) # flatten weights for optimization 
+                    optimized = minimize(self.value_and_grad_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
+                    w[sessInd[s]:sessInd[s+1],k,:,0] = optimized.x # updating weight w for current session
+                    
+                # simple optimization
+                # w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
+                # optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
+                # optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
+                # w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+               
+                # # JAX optimization
+                # w_flat = jnp.ravel(jnp.asarray(w[sessInd[s],:,:,0])) # flatten weights for optimization 
+                # opt_log = lambda w: self.weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma) # calculate log likelihood 
+                # optimized = minimize(value_and_grad(opt_log), w_flat, jac = "True")
+                # optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
+                # w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+                     
+                
                 
                 # optimizedW = np.zeros((self.k,self.d,self.c))
                 # # prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights

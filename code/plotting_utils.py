@@ -44,7 +44,7 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_state_occupancy(z, axes):
+def plotting_state_occupancy(z, axes, title='', save_fig=False):
     K = len(np.unique(z)) # number of states
     percent_time = np.zeros((K,))
     labels = ['state %s' %(i+1) for i in range(K)]
@@ -52,6 +52,11 @@ def plotting_state_occupancy(z, axes):
         percent_time[i] = len(np.argwhere(z==i))/z.shape[0]
 
     axes.bar(labels, percent_time, color=colors_dark)
+    axes.set_ylim(0,1)
+    axes.set_title(title)
+    axes.set_ylabel('% time in state')
+    if(save_fig==True):
+        plt.savefig(f'../figures/State_Occupancy-{title}.png', bbox_inches='tight', dpi=400)
 
 def sigma_testLl_plot(K, sigmaList, testLl, axes, title='', labels=None, color=0, save_fig=False):
     ''' 

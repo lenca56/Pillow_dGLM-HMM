@@ -85,10 +85,14 @@ def reshapeWeights(w, oldSessInd, newSessInd):
     
     return reshapedW
 
-
 def permute_states(w, sessInd):
     ''' 
-    decreasing order acording drift of sensory across consecutive sessions
+    returning states in decreasing order according to variability of sensory weights across consecutive sessions
+
+    Returns
+    -------
+    sortedInd: list of length k
+        permutation of [0,1,..,k-1] in order described above
     '''
     k = w.shape[1]
     sess = len(sessInd)-1
@@ -99,5 +103,5 @@ def permute_states(w, sessInd):
     sortedInd = list(np.argsort(driftState))
     sortedInd.reverse() # decreasing order
     
-    return w[:,sortedInd,:,:]
+    return sortedInd
     

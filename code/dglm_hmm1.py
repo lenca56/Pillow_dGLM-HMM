@@ -428,9 +428,16 @@ class dGLM_HMM1():
     
     def value_and_grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         ''' 
-        weight loss function to optimize in M-step that also calculates gradient
+        weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        it also returns the gradient of the above function to be used for faster optimization 
 
         for one state only
+
+        L(currentW from state k) = sum_t gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
 
         Parameters
         ----------
@@ -468,8 +475,10 @@ class dGLM_HMM1():
 
         # weighted log likelihood term of loss function
         lf = 0
+        grad = np.zeros((self.d))
         for t in range(0, T):
-            lf += gamma[t]*logPhi[t,0,y[t]] 
+            lf += gamma[t]*logPhi[t,0,y[t]]
+            grad += gamma[t] * (softplus_deriv(-x[t]@currentW) - y[t]) * x[t]
 
         # sigma=0 together with session indices [0,N] means usual GLM-HMM
         # inverse of covariance matrix
@@ -480,14 +489,16 @@ class dGLM_HMM1():
         if (prevW is not None):
             # logpdf of multivariate normal (ignoring pi constant)
             lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,0]).T @ invCov @ (currentW[:] - prevW[:,0])
+            grad += - invCov @ (currentW[:] - prevW[:,0])
         if (nextW is not None):
             # logpdf of multivariate normal (ignoring pi constant)
             lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,0]).T @ invCov @ (currentW[:] - nextW[:,0])
+            grad += - invCov @ (currentW[:] - nextW[:,0])
                    
         # penalty term for size of weights - NOT NECESSARY FOR NOW
         #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
-        return -lf
+        return -lf, -grad
     
     def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
         '''
@@ -574,7 +585,7 @@ class dGLM_HMM1():
                     prevW = w[sessInd[s-1],k,:,:] if s!=0 else None #  d x c matrix of previous session weights
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
                     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,0]) # flatten weights for optimization 
-                    optimized = minimize(self.value_and_grad_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
+                    optimized = minimize(self.value_and_grad_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]), jac=True)
                     w[sessInd[s]:sessInd[s+1],k,:,0] = optimized.x # updating weight w for current session
                     
                 # simple optimization
@@ -616,6 +627,12 @@ class dGLM_HMM1():
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
+        
+        # permuting states according to variability across sessions
+        if (sess > 1):
+            sortedStateInd = permute_states(w, sessInd)
+            w = w[:,sortedStateInd,:,:]
+            p = p[sortedStateInd,:][:,sortedStateInd]
 
         return p, w, ll
     

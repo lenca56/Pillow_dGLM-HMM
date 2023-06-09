@@ -104,4 +104,7 @@ def permute_states(w, sessInd):
     sortedInd.reverse() # decreasing order
     
     return sortedInd
+
+def softplus_deriv(x):
+    return math.exp(x)/1+math.exp(x)
     

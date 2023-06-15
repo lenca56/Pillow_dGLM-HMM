@@ -1,5 +1,7 @@
 *.csv
 data/**
+data_old/**
+data_M1/**
 logs/**
 *.pkl
 *.pickle

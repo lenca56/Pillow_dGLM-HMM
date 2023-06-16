@@ -1,6 +1,7 @@
 figures/**
 figures_M1/**
 *.csv
+*.npy
 data/**
 data_old/**
 data_M1/**

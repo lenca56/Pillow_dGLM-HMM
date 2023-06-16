@@ -1,4 +1,5 @@
-/figures**
+figures/**
+figures_M1/**
 *.csv
 data/**
 data_old/**

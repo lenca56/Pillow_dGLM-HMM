@@ -81,9 +81,16 @@ def reshapeWeights(w, oldSessInd, newSessInd):
     newT = newSessInd[-1]
     reshapedW = np.zeros((newT, k, d, c))
     for sess in range(0,len(oldSessInd)-1):
-        reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,0] = w[oldSessInd[sess],:,:,0]
+        reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,1] = w[oldSessInd[sess],:,:,1]
     
     return reshapedW
+
+def reshapeP_M1_to_M2(P, N):
+    '''
+    function reshaping transition matrix in dGLM-HMM1 of shape (K,K) to shape (N,K,K) in dGLM-HMM2
+    
+    '''
+    return np.repeat(P[np.newaxis,...], N, axis=0)
 
 def permute_states(w, sessInd):
     ''' 
@@ -99,12 +106,12 @@ def permute_states(w, sessInd):
     driftState = np.zeros((k,))
     for s in range(0,sess-1):
         for i in range(0,k):
-            driftState[i]+= abs(w[sessInd[s+1],i,1,0] - w[sessInd[s],i,1,0]) # not sure about the scale
+            driftState[i]+= abs(w[sessInd[s+1],i,1,1] - w[sessInd[s],i,1,1]) # not sure about the scale
     sortedInd = list(np.argsort(driftState))
     sortedInd.reverse() # decreasing order
     
     return sortedInd
 
 def softplus_deriv(x):
-    return math.exp(x)/1+math.exp(x)
+    return math.exp(x)/(1+math.exp(x))
     

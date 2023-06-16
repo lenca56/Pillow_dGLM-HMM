@@ -27,8 +27,8 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
     '''
     sess = len(sessInd)-1
     for i in range(0,w.shape[1]):
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,0],color=colors_dark[i],marker='o',label=f'state {i+1} sensory')
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,0],color=colors_light[i],marker='o', label=f'state {i+1} bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',label=f'state {i+1} sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colors_light[i],marker='o', label=f'state {i+1} bias')
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
@@ -38,11 +38,39 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
 
     if(trueW is not None):
         for i in range(0,trueW.shape[1]):
-            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,1,0],color=colors_dark[i],marker='o',linestyle='dashed', label=f'true sensory {i+1}')
-            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,0,0],color=colors_light[i],marker='o',linestyle='dashed', label=f'true bias {i+1}')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',linestyle='dashed', label=f'true sensory {i+1}')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,0,1],color=colors_light[i],marker='o',linestyle='dashed', label=f'true bias {i+1}')
     
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
+
+def plotting_transition_matrix_stickiness(p, sessInd, axes, trueP=None, title='', save_fig=False):
+    ''' 
+    
+    Parameters
+    __________
+    
+    Returns
+    ________
+    '''
+
+    sess = len(sessInd)-1
+    for i in range(0,p.shape[1]):
+        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],color=colors_dark[i],marker='o',label=f'state {i+1} stickiness')
+
+    axes.set_title(title)
+    axes.set_xticks(range(1,sess+1))
+    axes.set_ylabel("P( state t+1 = i | state t = i )")
+    axes.set_ylim(0.6,1)
+    axes.set_xlabel('session')
+    axes.legend(loc='lower right')
+
+    if(trueP is not None):
+        for i in range(0,p.shape[1]):
+            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colors_dark[i],marker='o',linestyle='dashed',label=f'true state {i+1} ')
+
+    if(save_fig==True):
+        plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}.png', bbox_inches='tight', dpi=400)
 
 def plotting_state_occupancy(z, axes, title='', save_fig=False):
     K = len(np.unique(z)) # number of states

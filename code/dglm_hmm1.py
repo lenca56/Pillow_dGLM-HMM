@@ -14,7 +14,7 @@ class dGLM_HMM1():
     """
     Class for fitting driftinig GLM-HMM model 1 in which weights are constant within session but vary across sessions
     Code just works for c=2 at the moment
-    Weights for class c=1 are always kept to 0 (so then emission probability becomes 1/(1+exp(-wTx)))
+    Weights for class c=0 are always kept to 0 (so then emission probability becomes 1/(1+exp(-wTx)))
     X columns represent [bias, sensory] in this order
 
     Notation: 
@@ -65,7 +65,20 @@ class dGLM_HMM1():
             phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
 
         return phi
-    
+
+    def loss(self, w, x, y, gamma):
+        ''' 
+        w: D x 1 numpy vector
+        x: D x 1 numpy vector
+        gamma: scalar
+        y: 0 or 1 scalar
+        '''
+        return gamma * math.log(math.exp(-y * w @ x)/(1+math.exp(-w @ x)))
+
+    def grad_loss(self, w, x, y, gamma):
+        return gamma * ( softplus_deriv(-w @ x) - y) * x
+
+
     def simulate_data(self, trueW, trueP, sessInd, save=False, title='sim', pi0=0.5):
         '''
         function that simulates X and Y data from true weights and true transition matrix
@@ -268,7 +281,7 @@ class dGLM_HMM1():
         for t in range(0,T-1):
             alpha_beta = alpha[t,:].reshape((self.k, 1)) @ beta[t+1,:].reshape((1, self.k))
             zeta[t,:,:] = np.multiply(alpha_beta,p) 
-            zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # change t+1 to t in phi to match Iris'
+            zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # Iris has index t at phi instead
             zeta[t,:,:] = zeta[t,:,:] / ct[t+1]
             
         return gamma, zeta
@@ -348,18 +361,18 @@ class dGLM_HMM1():
             (low, high) = weightDistribution[1]
             for s in range(0,sess):
                 rv = np.random.uniform(low, high, (self.k, self.d))
-                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+                w[sessInd[s]:sessInd[s+1],:,:,1] = rv
         elif (weightDistribution[0] == 'normal'):
             (mean, std) = weightDistribution[1]
             for s in range(0,sess):
                 rv = np.random.normal(mean, std, (self.k, self.d))
-                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+                w[sessInd[s]:sessInd[s+1],:,:,1] = rv
         else:
             raise Exception("Weight distribution can only be uniform or normal")
 
         return p, w 
     
-    def weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+    def all_states_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         '''
         weight loss function to optimize the weight in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -397,7 +410,7 @@ class dGLM_HMM1():
         currentW = currentW.reshape((self.k, self.d))
         sessW = np.zeros((T, self.k, self.d, self.c))
         for t in range(0,T):
-            sessW[t,:,:,0] = currentW[:,:]
+            sessW[t,:,:,1] = currentW[:,:]
 
         phi = self.observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
         logPhi = np.log(phi) # natural log of observation probabilities
@@ -416,17 +429,87 @@ class dGLM_HMM1():
 
             if (prevW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
+                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,1]).T @ invCov @ (currentW[k,:] - prevW[k,:,1])
             if (nextW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
+                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,1]).T @ invCov @ (currentW[k,:] - nextW[k,:,1])
                    
             # penalty term for size of weights - NOT NECESSARY FOR NOW
             #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
         return -lf
     
-    def value_and_grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+    def value_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        ''' 
+        weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        it also returns the gradient of the above function to be used for faster optimization 
+
+        for one state only
+
+        L(currentW from state k) = sum_t gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
+
+        Parameters
+        ----------
+        currentW: d numpy vector
+            weights of current session for C=0 and one particular state
+        x: T x d numpy array
+            design matrix
+        y : T numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T numpy vector
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: d x c numpy array
+            weights of previous session
+        nextW: d x c numpy array
+            weights of next session
+        sigma: d numpy vector
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -lf: float
+            loss function for currentW to be minimized
+
+        '''
+
+        # number of datapoints
+        T = x.shape[0]
+
+        sessW = np.zeros((T, 1, self.d, self.c)) # K=1
+        for t in range(0,T):
+            sessW[t,0,:,1] = currentW[:]
+
+        phi = self.observation_probability(x, sessW) # N x 1 x C phi matrix calculated with currentW
+        logPhi = np.log(phi) # natural log of observation probabilities
+
+        # weighted log likelihood term of loss function
+        lf = 0
+        for t in range(0, T):
+            lf += gamma[t]*logPhi[t,0,y[t]]
+
+        # sigma=0 together with session indices [0,N] means usual GLM-HMM
+        # inverse of covariance matrix
+        invSigma = np.square(1/sigma[:])
+        det = np.prod(invSigma)
+        invCov = np.diag(invSigma)
+
+        if (prevW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,1]).T @ invCov @ (currentW[:] - prevW[:,1])
+        if (nextW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,1]).T @ invCov @ (currentW[:] - nextW[:,1])
+                   
+        # penalty term for size of weights - NOT NECESSARY FOR NOW
+        #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+
+        return -lf #, -grad
+
+    def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         ''' 
         weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -468,7 +551,71 @@ class dGLM_HMM1():
 
         sessW = np.zeros((T, 1, self.d, self.c)) # K=1
         for t in range(0,T):
-            sessW[t,0,:,0] = currentW[:]
+            sessW[t,0,:,1] = currentW[:]
+
+        # weighted log likelihood term of loss function
+        grad = np.zeros((self.d))
+        for t in range(0, T):
+            grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
+
+        # sigma=0 together with session indices [0,N] means usual GLM-HMM
+        # inverse of covariance matrix
+        invSigma = np.square(1/sigma[:])
+
+        if (prevW is not None): # previous session
+            # gradient of logpdf of multivariate normal (ignoring pi constant)
+            grad += - np.multiply(invSigma, currentW[:] - prevW[:,1])
+        if (nextW is not None): # next session
+            # gradient of logpdf of multivariate normal (ignoring pi constant)
+            grad += - np.multiply(invSigma, currentW[:] - nextW[:,1])
+                   
+        # penalty term for size of weights - NOT NECESSARY FOR NOW
+
+        return -grad
+
+    def value_and_grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        ''' 
+        weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        it also returns the gradient of the above function to be used for faster optimization 
+
+        for one state only
+
+        L(currentW from state k) = sum_t gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
+
+        Parameters
+        ----------
+        currentW: d numpy vector
+            weights of current session for C=0 and one particular state
+        x: T x d numpy array
+            design matrix
+        y : T numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T numpy vector
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: d x c numpy array
+            weights of previous session
+        nextW: d x c numpy array
+            weights of next session
+        sigma: d numpy vector
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -lf: float
+            loss function for currentW to be minimized
+
+        '''
+
+        # number of datapoints
+        T = x.shape[0]
+
+        sessW = np.zeros((T, 1, self.d, self.c)) # K=1
+        for t in range(0,T):
+            sessW[t,0,:,1] = currentW[:]
 
         phi = self.observation_probability(x, sessW) # N x 1 x C phi matrix calculated with currentW
         logPhi = np.log(phi) # natural log of observation probabilities
@@ -478,7 +625,7 @@ class dGLM_HMM1():
         grad = np.zeros((self.d))
         for t in range(0, T):
             lf += gamma[t]*logPhi[t,0,y[t]]
-            grad += gamma[t] * (softplus_deriv(-x[t]@currentW) - y[t]) * x[t]
+            grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
 
         # sigma=0 together with session indices [0,N] means usual GLM-HMM
         # inverse of covariance matrix
@@ -488,17 +635,17 @@ class dGLM_HMM1():
 
         if (prevW is not None):
             # logpdf of multivariate normal (ignoring pi constant)
-            lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,0]).T @ invCov @ (currentW[:] - prevW[:,0])
-            grad += - invCov @ (currentW[:] - prevW[:,0])
+            lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,1]).T @ invCov @ (currentW[:] - prevW[:,1])
+            grad += - np.multiply(invSigma, currentW[:] - prevW[:,1])
         if (nextW is not None):
             # logpdf of multivariate normal (ignoring pi constant)
-            lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,0]).T @ invCov @ (currentW[:] - nextW[:,0])
-            grad += - invCov @ (currentW[:] - nextW[:,0])
+            lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,1]).T @ invCov @ (currentW[:] - nextW[:,1])
+            grad += - np.multiply(invSigma, currentW[:] - nextW[:,1])
                    
         # penalty term for size of weights - NOT NECESSARY FOR NOW
         #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
-        return -lf, -grad
+        return -lf , -grad
     
     def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
         '''
@@ -584,9 +731,12 @@ class dGLM_HMM1():
                 for k in range(0,self.k):
                     prevW = w[sessInd[s-1],k,:,:] if s!=0 else None #  d x c matrix of previous session weights
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
-                    w_flat = np.ndarray.flatten(w[sessInd[s],k,:,0]) # flatten weights for optimization 
-                    optimized = minimize(self.value_and_grad_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]), jac=True)
-                    w[sessInd[s]:sessInd[s+1],k,:,0] = optimized.x # updating weight w for current session
+                    w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
+                    #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
+                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
+                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
+                    optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
+                    w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
                     
                 # simple optimization
                 # w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 

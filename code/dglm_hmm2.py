@@ -7,11 +7,15 @@ from plotting_utils import *
 from scipy.stats import multivariate_normal
 from sklearn.model_selection import KFold
 # from autograd import value_and_grad, hessian
-# import jax
+from jax import value_and_grad
+import jax.numpy as jnp
 
 class dGLM_HMM2():
     """
-    Class for fitting driftinig GLM-HMM model 2: Differs from model 1 by having dynamic transition matrix varying from session to sesssion
+    Class for fitting driftinig GLM-HMM model 1 in which weights are constant within session but vary across sessions
+    Code just works for c=2 at the moment
+    Weights for class c=0 are always kept to 0 (so then emission probability becomes 1/(1+exp(-wTx)))
+    X columns represent [bias, sensory] in this order
 
     Notation: 
         n: number of data points
@@ -21,7 +25,6 @@ class dGLM_HMM2():
         X: design matrix (n x d)
         Y: observations (n x c) or (n x 1)
         w: weights mapping x to y (n x k x d x c)
-        p: transition matrix (n x k x k)
     """
 
     def __init__(self, n, k, d, c):
@@ -47,14 +50,22 @@ class dGLM_HMM2():
         
         Ncurrent = x.shape[0]
 
-        phi = np.empty((Ncurrent, self.k, self.c)) # probability that it is state 1
-        for k in range(0, self.k):
+        if (w.ndim == 3): # it means K=1
+            w = w.reshape((w.shape[0],1,w.shape[1],w.shape[2]))
+            K = 1
+        elif (w.ndim == 4): # K>=2
+            K = w.shape[1]
+        else:
+            raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
+
+        phi = np.empty((Ncurrent, K, self.c)) # probability that it is state 1
+        for k in range(0, K):
             for c in range(0, self.c):
                 phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
             phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
 
         return phi
-    
+
     def simulate_data(self, trueW, trueP, sessInd, save=False, title='sim', pi0=0.5):
         '''
         function that simulates X and Y data from true weights and true transition matrix
@@ -63,8 +74,10 @@ class dGLM_HMM2():
         ----------
         trueW: n x k x d x c numpy array
             true weight matrix. for c=2, trueW[:,:,:,1] = 0 
-        trueP: s x k x k numpy array
+        trueP: k x k numpy array
             true probability transition matrix
+        priorZstart: int
+            0.5 probability of starting a session with state 0 (works for C=2)
         sessInd: list of int
             indices of each session start, together with last session end + 1
         save: boolean
@@ -82,8 +95,6 @@ class dGLM_HMM2():
             simulated hidden states vector
 
         '''
-        s = len(sessInd)-1 # number of total sessions
-
         # check that weight and transition matrices are valid options
         if (trueW.shape != (self.n, self.k, self.d, self.c)):
             raise Exception(f'Weights need to have shape ({self.n}, {self.k}, {self.d}, {self.c})')
@@ -102,7 +113,7 @@ class dGLM_HMM2():
         x[:,1] = x[:,1] - x[:,1].mean()
         x[:,1] = x[:,1] / x[:,1].std()
 
-        # TRY normal distribution for x[:,1]
+        # TRY ormal distribution for x[:,1]
 
         if (self.k==1):
             z[:] = 0
@@ -114,7 +125,7 @@ class dGLM_HMM2():
                 else:
                     z[t] = np.random.binomial(n=1, p=trueP[t,z[t-1],1])
         elif (self.k >=3):
-            raise Exception("simulate data does not currently support k>=3")
+            raise Exception("simulate data does not support k>=3")
         
         # observation probabilities
         phi = self.observation_probability(x, trueW)
@@ -125,9 +136,9 @@ class dGLM_HMM2():
         y = reshapeObs(y) # reshaping from n x c to n x 1
 
         if (save==True):
-            np.save(f'../data/M2_{title}X', x)
-            np.save(f'../data/M2_{title}Y', y)
-            np.save(f'../data/M2_{title}Z', z)
+            np.save(f'../data/{title}X', x)
+            np.save(f'../data/{title}Y', y)
+            np.save(f'../data/{title}Z', z)
 
         return x, y, z
 
@@ -140,7 +151,7 @@ class dGLM_HMM2():
         ----------
         y : T x 1 numpy vector 
             vector of observations with values 0,1,..,C-1
-        P : T x k x k numpy array 
+        P : k x k numpy array 
             matrix of transition probabilities
         phi : T x k x  c numpy array
             matrix of observation probabilities
@@ -190,7 +201,7 @@ class dGLM_HMM2():
         ----------
         y : T x 1 numpy vector
             vector of observations with values 0,1,..,C-1
-        p : T x k x k numpy array
+        p : k x k numpy array
             matrix of transition probabilities
         phi : T x k x c numppy array
             matrix of observation probabilities
@@ -228,7 +239,7 @@ class dGLM_HMM2():
         ----------
         y : T x 1 numpy vector 
             vector of observations with values 0,1,..,C-1
-        p : T x k x k numpy array
+        p : k x k numpy array
             matrix of transition probabilities
         phi : T x k x c numppy array
             matrix of observation probabilities
@@ -257,12 +268,12 @@ class dGLM_HMM2():
         for t in range(0,T-1):
             alpha_beta = alpha[t,:].reshape((self.k, 1)) @ beta[t+1,:].reshape((1, self.k))
             zeta[t,:,:] = np.multiply(alpha_beta,p[t]) 
-            zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # change t+1 to t in phi to match Iris'
+            zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # Iris has index t at phi instead
             zeta[t,:,:] = zeta[t,:,:] / ct[t+1]
             
         return gamma, zeta
 
-    def get_max_prob_states(self, x, y, w, p, sessInd=None):
+    def get_states_in_time(self, x, y, w, p, sessInd=None):
         ''' 
         function that gets the distribution of states across trials/time-points after assigning the states with respective maximum probabilities
         '''
@@ -289,7 +300,7 @@ class dGLM_HMM2():
             zStates[sessInd[s]:sessInd[s+1]] = np.argmax(gammaSess,axis=1)
         
         return zStates
-
+    
     def generate_param(self, sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]):
         ''' 
         Function that generates parameters w and P and is used for initialization of parameters during fitting
@@ -339,18 +350,18 @@ class dGLM_HMM2():
             (low, high) = weightDistribution[1]
             for s in range(0,sess):
                 rv = np.random.uniform(low, high, (self.k, self.d))
-                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+                w[sessInd[s]:sessInd[s+1],:,:,1] = rv
         elif (weightDistribution[0] == 'normal'):
             (mean, std) = weightDistribution[1]
             for s in range(0,sess):
                 rv = np.random.normal(mean, std, (self.k, self.d))
-                w[sessInd[s]:sessInd[s+1],:,:,0] = rv
+                w[sessInd[s]:sessInd[s+1],:,:,1] = rv
         else:
             raise Exception("Weight distribution can only be uniform or normal")
 
         return p, w 
     
-    def weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+    def all_states_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         '''
         weight loss function to optimize the weight in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -388,7 +399,7 @@ class dGLM_HMM2():
         currentW = currentW.reshape((self.k, self.d))
         sessW = np.zeros((T, self.k, self.d, self.c))
         for t in range(0,T):
-            sessW[t,:,:,0] = currentW[:,:]
+            sessW[t,:,:,1] = currentW[:,:]
 
         phi = self.observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
         logPhi = np.log(phi) # natural log of observation probabilities
@@ -407,17 +418,151 @@ class dGLM_HMM2():
 
             if (prevW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,0]).T @ invCov @ (currentW[k,:] - prevW[k,:,0])
+                lf +=  -1/2 * np.log(det) - 1/2 * (currentW[k,:] - prevW[k,:,1]).T @ invCov @ (currentW[k,:] - prevW[k,:,1])
             if (nextW is not None):
                 # logpdf of multivariate normal (ignoring pi constant)
-                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,0]).T @ invCov @ (currentW[k,:] - nextW[k,:,0])
+                lf += -1/2 * np.log(det) - 1/2 * (currentW[k,:] - nextW[k,:,1]).T @ invCov @ (currentW[k,:] - nextW[k,:,1])
                    
             # penalty term for size of weights - NOT NECESSARY FOR NOW
             #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
 
         return -lf
     
-    def fit(self, x, y, initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
+    def value_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        ''' 
+        weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        it also returns the gradient of the above function to be used for faster optimization 
+
+        for one state only
+
+        L(currentW from state k) = sum_t gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
+
+        Parameters
+        ----------
+        currentW: d numpy vector
+            weights of current session for C=0 and one particular state
+        x: T x d numpy array
+            design matrix
+        y : T numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T numpy vector
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: d x c numpy array
+            weights of previous session
+        nextW: d x c numpy array
+            weights of next session
+        sigma: d numpy vector
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -lf: float
+            loss function for currentW to be minimized
+
+        '''
+
+        # number of datapoints
+        T = x.shape[0]
+
+        sessW = np.zeros((T, 1, self.d, self.c)) # K=1
+        for t in range(0,T):
+            sessW[t,0,:,1] = currentW[:]
+
+        phi = self.observation_probability(x, sessW) # N x 1 x C phi matrix calculated with currentW
+        logPhi = np.log(phi) # natural log of observation probabilities
+
+        # weighted log likelihood term of loss function
+        lf = 0
+        for t in range(0, T):
+            lf += gamma[t]*logPhi[t,0,y[t]]
+
+        # sigma=0 together with session indices [0,N] means usual GLM-HMM
+        # inverse of covariance matrix
+        invSigma = np.square(1/sigma[:])
+        det = np.prod(invSigma)
+        invCov = np.diag(invSigma)
+
+        if (prevW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf +=  -1/2 * np.log(det) - 1/2 * (currentW[:] - prevW[:,1]).T @ invCov @ (currentW[:] - prevW[:,1])
+        if (nextW is not None):
+            # logpdf of multivariate normal (ignoring pi constant)
+            lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,1]).T @ invCov @ (currentW[:] - nextW[:,1])
+                   
+        # penalty term for size of weights - NOT NECESSARY FOR NOW
+        #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+
+        return -lf #, -grad
+
+    def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+        ''' 
+        weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
+        coming from drifting wrt neighboring sessions
+
+        it also returns the gradient of the above function to be used for faster optimization 
+
+        for one state only
+
+        L(currentW from state k) = sum_t gamma(z_t=k) * log p(y_t | z_t=k) + log P(currentW | prevW) + log P(currentW | nextW),
+        where gamma matrix are fixed by old parameters but observation probabilities p(y_t | z_t=k) are updated with currentW
+
+
+        Parameters
+        ----------
+        currentW: d numpy vector
+            weights of current session for C=0 and one particular state
+        x: T x d numpy array
+            design matrix
+        y : T x 1 numpy vector 
+            vector of observations with values 0,1,..,C-1
+        gamma: T x k numpy array
+            matrix of marginal posterior of latents p(z_t | y_1:T)
+        prevW: k x d x c numpy array
+            weights of previous session
+        nextW: k x d x c numpy array
+            weights of next session
+        sigma: k x d numpy array
+            std parameters of normal distribution for each state and each feature
+        
+        Returns
+        ----------
+        -lf: float
+            loss function for currentW to be minimized
+
+        '''
+
+        # number of datapoints
+        T = x.shape[0]
+
+        sessW = np.zeros((T, 1, self.d, self.c)) # K=1
+        for t in range(0,T):
+            sessW[t,0,:,1] = currentW[:]
+
+        # weighted log likelihood term of loss function
+        grad = np.zeros((self.d))
+        for t in range(0, T):
+            grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
+
+        # sigma=0 together with session indices [0,N] means usual GLM-HMM
+        # inverse of covariance matrix
+        invSigma = np.square(1/sigma[:])
+
+        if (prevW is not None): # previous session
+            # gradient of logpdf of multivariate normal (ignoring pi constant)
+            grad += - np.multiply(invSigma, currentW[:] - prevW[:,1])
+        if (nextW is not None): # next session
+            # gradient of logpdf of multivariate normal (ignoring pi constant)
+            grad += - np.multiply(invSigma, currentW[:] - nextW[:,1])
+                   
+        # penalty term for size of weights - NOT NECESSARY FOR NOW
+
+        return -grad
+
+    def fit(self, x, y,  initP, initW, sigma, alpha, globalP, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -430,12 +575,16 @@ class dGLM_HMM2():
             design matrix
         y : T x 1 numpy vector 
             vector of observations with values 0,1,..,C-1
-        initP : T x k x k numpy array
+        initP :k x k numpy array
             initial matrix of transition probabilities
-        initW: T x k x d x c numpy array
+        initW: n x k x d x c numpy array
             initial weight matrix
         sigma: k x d numpy array
             st dev of normal distr for weights drifting over sessions
+        alpha: positive float
+            scalar hyperparameter determining concentration of Dirichlet prior for transition matrices of each session
+        globalP: k x k numpy array
+            global transition matrix previously fitted that we use in Dirichlet prior
         sessInd: list of int
             indices of each session start, together with last session end + 1
         pi0 : k x 1 numpy vector
@@ -447,7 +596,7 @@ class dGLM_HMM2():
         
         Returns
         -------
-        p: T x k x k numpy array
+        p: k x k numpy array
             fitted probability transition matrix
         w: T x k x d x c numpy array
             fitteed weight matrix
@@ -472,18 +621,28 @@ class dGLM_HMM2():
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
 
-        #plotting_weights(initW, sessInd, 'initial weights')
+        # CHECK THAT GLOBAL P IS A TRANSITION MATRIX (AND MAYBE ALSO INIT P)
+        if (globalP.shape != (self.k, self.k)):
+            raise Exception("Global P should be an array of shape (k,k)")
+        else:
+            for i in range(0, self.k):
+                if (abs(globalP[i,:].sum() - 1) > 1e-6):
+                    raise Exception(f'Global P row {i} does not sum up to 1')
+            
 
         for iter in range(maxIter):
 
-            if(iter%10==0):
+            if (iter%10==0):
                 print(iter)
             
             # calculate observation probabilities given theta_old
             phi = self.observation_probability(x, w)
 
+            # # EM step for each session independently 
+            # for s in range(0,sess):
+           
             # EM step for each session independently 
-            for s in range(0,sess):
+            for s in range(sess-1,-1,-1):
                 
                 # E step - forward and backward passes given theta_old (= previous w and p)
                 alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p[sessInd[s]:sessInd[s+1]], phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)
@@ -494,23 +653,34 @@ class dGLM_HMM2():
                 zeta[sessInd[s]:sessInd[s+1]-1,:,:] = zetaSess[:,:,:] 
                 ll[iter] += llSess
                 
-                # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
-                prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
-                nextW = w[sessInd[s+1]] if s!=sess-1 else None # k x d x c matrix of next session weights
-                w_flat = np.ndarray.flatten(w[sessInd[s],:,:,0]) # flatten weights for optimization 
-                optimized = minimize(self.weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess, prevW, nextW, sigma))
-                optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
-                w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
+                for k in range(0,self.k):
+                    # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
+                    prevW = w[sessInd[s-1],k,:,:] if s!=0 else None #  d x c matrix of previous session weights
+                    nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
+                    w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
+                    #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
+                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
+                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
+                    optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
+                    w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
                 
                 # M-step for transition matrix p - for each session independently
                 for i in range(0, self.k):
                     for j in range(0, self.k):
-                        value = zetaSess[:,i,j].sum()/zetaSess[:,i,:].sum()
+                        # value = zetaSess[:,i,j].sum()/zetaSess[:,i,:].sum() # NO PRIOR UPDATE
+                        value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j] - 1)/(zetaSess[:,i,:].sum() + alpha - self.k) # Update with Dirichlet prior
+                        #value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j])/(zetaSess[:,i,:].sum() + alpha) # Dirichlet prior Version 2
                         p[sessInd[s]:sessInd[s+1],i,j] = value # closed form update
         
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
+        
+        # permuting states according to variability across sessions
+        if (sess > 1):
+            sortedStateInd = permute_states(w, sessInd)
+            w = w[:,sortedStateInd,:,:]
+            p = p[:,sortedStateInd,:][:,:,sortedStateInd]
 
         return p, w, ll
     
@@ -573,6 +743,5 @@ class dGLM_HMM2():
         
         return trainX, trainY, trainSessInd, testX, testY, testSessInd
 
-  
 
         

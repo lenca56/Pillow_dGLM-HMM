@@ -5,6 +5,7 @@ figures_M1/**
 data/**
 data_old/**
 data_M1/**
+data_falkner/**
 logs/**
 *.pkl
 *.pickle

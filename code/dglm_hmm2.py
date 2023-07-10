@@ -73,8 +73,8 @@ class dGLM_HMM2():
         Parameters
         ----------
         trueW: n x k x d x c numpy array
-            true weight matrix. for c=2, trueW[:,:,:,1] = 0 
-        trueP: k x k numpy array
+            true weight matrix. for c=2, trueW[:,:,:,0] = 0 
+        trueP: n x k x k numpy array
             true probability transition matrix
         priorZstart: int
             0.5 probability of starting a session with state 0 (works for C=2)

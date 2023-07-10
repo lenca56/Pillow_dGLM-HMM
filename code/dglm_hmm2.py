@@ -667,6 +667,7 @@ class dGLM_HMM2():
                 # M-step for transition matrix p - for each session independently
                 for i in range(0, self.k):
                     for j in range(0, self.k):
+                        # print(f'Sessions {s} Zeta ', zetaSess[:,i,j].sum())
                         # value = zetaSess[:,i,j].sum()/zetaSess[:,i,:].sum() # NO PRIOR UPDATE
                         value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j] - 1)/(zetaSess[:,i,:].sum() + alpha - self.k) # Update with Dirichlet prior version 1
                         #value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j])/(zetaSess[:,i,:].sum() + alpha) # Dirichlet prior Version 2

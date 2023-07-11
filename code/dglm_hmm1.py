@@ -7,8 +7,8 @@ from plotting_utils import *
 from scipy.stats import multivariate_normal
 from sklearn.model_selection import KFold
 # from autograd import value_and_grad, hessian
-from jax import value_and_grad
-import jax.numpy as jnp
+# from jax import value_and_grad
+# import jax.numpy as jnp
 
 class dGLM_HMM1():
     """

@@ -113,7 +113,7 @@ class dGLM_HMM2():
         x[:,1] = x[:,1] - x[:,1].mean()
         x[:,1] = x[:,1] / x[:,1].std()
 
-        # TRY ormal distribution for x[:,1]
+        # TRY normal distribution for x[:,1]
 
         if (self.k==1):
             z[:] = 0
@@ -669,8 +669,8 @@ class dGLM_HMM2():
                     for j in range(0, self.k):
                         # print(f'Sessions {s} Zeta ', zetaSess[:,i,j].sum())
                         # value = zetaSess[:,i,j].sum()/zetaSess[:,i,:].sum() # NO PRIOR UPDATE
-                        value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j] - 1)/(zetaSess[:,i,:].sum() + alpha - self.k) # Update with Dirichlet prior version 1
-                        #value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j])/(zetaSess[:,i,:].sum() + alpha) # Dirichlet prior Version 2
+                        # value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j] - 1)/(zetaSess[:,i,:].sum() + alpha - self.k) # Update with Dirichlet prior version 1
+                        value = (zetaSess[:,i,j].sum() + alpha * globalP[i,j])/(zetaSess[:,i,:].sum() + alpha) # Dirichlet prior Version 2
                         p[sessInd[s]:sessInd[s+1],i,j] = value # closed form update
         
             # check if stopping early 

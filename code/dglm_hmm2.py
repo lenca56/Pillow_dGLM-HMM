@@ -638,11 +638,11 @@ class dGLM_HMM2():
             # calculate observation probabilities given theta_old
             phi = self.observation_probability(x, w)
 
-            # # EM step for each session independently 
-            # for s in range(0,sess):
-           
             # EM step for each session independently 
-            for s in range(sess-1,-1,-1):
+            for s in range(0,sess):
+           
+            # # EM step for each session independently 
+            # for s in range(sess-1,-1,-1):
                 
                 # E step - forward and backward passes given theta_old (= previous w and p)
                 alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p[sessInd[s]:sessInd[s+1]], phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)

@@ -70,7 +70,7 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
     allP = [np.zeros((len(sigmaList), K,K)) for i in range(0,folds)] 
     allW = [] 
 
-    for fold in range(0,folds):
+    for fold in [0]: # fitting single fold     # fittinng all folds -> range(0,folds): 
         # initializing parameters for each fold
         N = trainX[fold].shape[0]
         oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
@@ -80,7 +80,7 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
         testY[fold] = testY[fold].astype(int)
 
         for indSigma in range(0,len(sigmaList)): 
-            print(sigmaList[indSigma])
+            print("Sigma Index " + str(indSigma))
             if (indSigma == 0): 
                 if(sigmaList[0] == 0):
                     initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
@@ -106,12 +106,12 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
 
         if(save==True):
-            np.save(f'../data/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', trainLl[fold])
-            np.save(f'../data/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', testLl[fold])
-            np.save(f'../data/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', allP[fold])
-            np.save(f'../data/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', allW[fold])
-            np.save(f'../data/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', np.array(trainSessInd[fold]))
-            np.save(f'../data/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', np.array(testSessInd[fold]))
+            np.save(f'../data_PWM/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', trainLl[fold])
+            np.save(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', testLl[fold])
+            np.save(f'../data_PWM/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', allP[fold])
+            np.save(f'../data_PWM/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', allW[fold])
+            np.save(f'../data_PWM/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', np.array(trainSessInd[fold]))
+            np.save(f'../data_PWM/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas', np.array(testSessInd[fold]))
 
     return trainLl, testLl, allP, allW
 

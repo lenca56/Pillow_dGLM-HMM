@@ -131,7 +131,7 @@ def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, ti
     sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
     sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] + [sigmaList[ind] for ind in range(11,len(sigmaList))]
     for fold in range(0, folds):
-        testLl = np.load(f'../data/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas.npy')
+        testLl = np.load(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas.npy')
         axes.set_title(title)
         axes.scatter(np.log(sigmaList[1:]), testLl[1:], color=colormap[fold+1])
         axes.plot(np.log(sigmaList[1:]), testLl[1:], color=colormap[fold+1])

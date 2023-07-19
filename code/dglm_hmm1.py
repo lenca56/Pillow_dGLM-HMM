@@ -706,7 +706,7 @@ class dGLM_HMM1():
 
         for iter in range(maxIter):
 
-            if (iter%10==0):
+            if (iter%100==0):
                 print(iter)
             
             # calculate observation probabilities given theta_old

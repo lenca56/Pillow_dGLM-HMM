@@ -113,5 +113,10 @@ def permute_states(w, sessInd):
     return sortedInd
 
 def softplus_deriv(x):
-    return math.exp(x)/(1+math.exp(x))
+
+    # avoiding overflow
+    if (x > 0):
+        return 1/(1+math.exp(-x))
+    else:
+        return math.exp(x)/(1+math.exp(x))
     

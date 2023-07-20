@@ -439,7 +439,7 @@ class dGLM_HMM1():
 
         return -lf
     
-    def value_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+    def value_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, penaltyW=False):
         ''' 
         weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -505,11 +505,12 @@ class dGLM_HMM1():
             lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,1]).T @ invCov @ (currentW[:] - nextW[:,1])
                    
         # penalty term for size of weights - NOT NECESSARY FOR NOW
-        #lf -= 1/2 * currentW[k,:].T @ currentW[k,:]
+        if (penaltyW==True):
+            lf+= -1/2 * currentW[:].T @ currentW[:]
 
         return -lf #, -grad
 
-    def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
+    def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, penaltyW=False):
         ''' 
         weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -570,6 +571,8 @@ class dGLM_HMM1():
             grad += - np.multiply(invSigma, currentW[:] - nextW[:,1])
                    
         # penalty term for size of weights - NOT NECESSARY FOR NOW
+        if (penaltyW==True):
+            grad += - currentW[:]
 
         return -grad
 
@@ -647,7 +650,7 @@ class dGLM_HMM1():
 
         return -lf , -grad
     
-    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3):
+    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3, penaltyW=False):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -733,8 +736,10 @@ class dGLM_HMM1():
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
                     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
                     #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
-                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
-                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:])
+                    if (w_flat.T @ w_flat >= 500):
+                        print(w_flat)
+                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], penaltyW=penaltyW)
+                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], penaltyW=penaltyW)
                     optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
                     w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
                     

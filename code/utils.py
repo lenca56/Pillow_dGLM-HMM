@@ -113,6 +113,9 @@ def permute_states(w, sessInd):
     return sortedInd
 
 def softplus_deriv(x):
+    '''
+    also sigmoid
+    '''
 
     # avoiding overflow
     if (x > 0):

@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 class dGLM_HMM1():
     """
     Class for fitting driftinig GLM-HMM model 1 in which weights are constant within session but vary across sessions
-    Code just works for c=2 at the moment
+    Code just works for c=2 at the moment!!!
     Weights for class c=0 are always kept to 0 (so then emission probability becomes 1/(1+exp(-wTx)))
     X columns represent [bias, sensory] in this order
 
@@ -60,9 +60,13 @@ class dGLM_HMM1():
 
         phi = np.empty((Ncurrent, K, self.c)) # probability that it is state 1
         for k in range(0, K):
-            for c in range(0, self.c):
-                phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
-            phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
+            for t in range(0,Ncurrent):
+                phi[t,k,1] = softplus_deriv(-w[t,k,:,1]@x[t])
+                phi[t,k,0] = 1 - phi[t,k,1]
+            
+            # issues with overflow if calculating this way
+            #     phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
+            # phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
 
         return phi
 
@@ -736,8 +740,6 @@ class dGLM_HMM1():
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
                     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
                     #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
-                    if (w_flat.T @ w_flat >= 500):
-                        print(w_flat)
                     opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], penaltyW=penaltyW)
                     opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], penaltyW=penaltyW)
                     optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')

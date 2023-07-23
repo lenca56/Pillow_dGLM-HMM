@@ -151,4 +151,72 @@ def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, ti
     if(save_fig==True):
         plt.savefig(f'../figures/Sigma_vs_TestLl-{title}.png', bbox_inches='tight', dpi=400)
 
+def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=False):
+    K = w.shape[1]
+    sess = len(sessInd)-1
+
+    if (K==1):
+        if (sessStop==None):
+            axes[1].plot(range(1,sess+1),w[sessInd[:-1],0,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
+            axes[1].plot(range(1,sess+1),w[sessInd[:-1],0,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
+            axes[1].plot(range(1,sess+1),w[sessInd[:-1],0,3,1],color='#99CC66',linewidth=5, label='previous stim', alpha=0.8)
+            axes[0].plot(range(1,sess+1),w[sessInd[:-1],0,1,1],color="#A9373B",linewidth=5,label='stim A', alpha=0.8)
+            axes[0].plot(range(1,sess+1),w[sessInd[:-1],0,0,1],color='#FAA61A',linewidth=5, label='bias', alpha=0.8)
+            axes[0].plot(range(1,sess+1),w[sessInd[:-1],0,2,1],color="#2369BD",linewidth=5, label='stim B', alpha=0.8)
+        else:
+            axes[1].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
+            axes[1].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
+            axes[1].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,3,1],color='#99CC66',linewidth=5, label='previous stim', alpha=0.8)
+            axes[0].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,1,1],color="#A9373B",linewidth=5,label='stim A', alpha=0.8)
+            axes[0].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,0,1],color='#FAA61A',linewidth=5, label='bias', alpha=0.8)
+            axes[0].plot(range(1,sessStop+1),w[sessInd[:sessStop],0,2,1],color="#2369BD",linewidth=5, label='stim B', alpha=0.8)
+
+        #axes[0].set_title(title)
+        axes[0].set_ylabel("weights")
+        axes[0].set_xlabel('session')
+        # axes[0].set_yticks([-2,0,2])
+        # axes[0].set_ylim(-3,3)
+        # axes[1].set_ylim(-0.2,2.1)
+        # axes[1].set_yticks([0,2])
+        #axes[1].set_ylabel("weights")
+        axes[1].set_xlabel('session')
+
+        axes[0].legend(loc='upper right')
+        axes[1].legend(loc='upper right')
+
+    elif(K >= 2):
+        for i in range(0,K):
+            if (sessStop==None):
+                axes[i,1].plot(range(1,sess+1),w[sessInd[:-1],i,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
+                axes[i,1].plot(range(1,sess+1),w[sessInd[:-1],i,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
+                axes[i,1].plot(range(1,sess+1),w[sessInd[:-1],i,3,1],color='#99CC66',linewidth=5, label='previous stim', alpha=0.8)
+                axes[i,0].plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color="#A9373B",linewidth=5,label='stim A', alpha=0.8)
+                axes[i,0].plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color='#FAA61A',linewidth=5, label='bias', alpha=0.8)
+                axes[i,0].plot(range(1,sess+1),w[sessInd[:-1],i,2,1],color="#2369BD",linewidth=5, label='stim B', alpha=0.8)
+            else:
+                axes[i,1].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
+                axes[i,1].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
+                axes[i,1].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,3,1],color='#99CC66',linewidth=5, label='previous stim', alpha=0.8)
+                axes[i,0].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,1,1],color="#A9373B",linewidth=5,label='stim A', alpha=0.8)
+                axes[i,0].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,0,1],color='#FAA61A',linewidth=5, label='bias', alpha=0.8)
+                axes[i,0].plot(range(1,sessStop+1),w[sessInd[:sessStop],i,2,1],color="#2369BD",linewidth=5, label='stim B', alpha=0.8)
+
+            axes[i,0].set_title(f'State {i+1}')
+            axes[i,1].set_title(f'State {i+1}')
+            axes[i,0].set_ylabel("weights")
+            # axes[i,0].set_yticks([-2,0,2])
+            # axes[i,0].set_ylim(-3,3)
+            # axes[i,1].set_ylim(-0.2,2.1)
+            # axes[i,1].set_yticks([0,2])
+            #axes[1].set_ylabel("weights")
+            if (i==K-1):
+                axes[i,0].set_xlabel('session')
+                axes[i,1].set_xlabel('session')
+            axes[i,0].legend(loc='upper right')
+            axes[i,1].legend(loc='upper right')
+
+    if(save_fig==True):
+        plt.savefig(f'../figures/Weights_PWM_{title}.png', bbox_inches='tight', dpi=400)
+
+
     

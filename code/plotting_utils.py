@@ -122,7 +122,7 @@ def sigma_testLl_plot(K, sigmaList, testLl, axes, title='', labels=None, color=0
     if(save_fig==True):
         plt.savefig(f'../figures/Sigma_vs_TestLl-{title}.png', bbox_inches='tight', dpi=400)
     
-def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, title='', labels=None, color=0, penaltyW=False, save_fig=False):
+def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, title='', labels=None, color=0, linestyle='solid', penaltyW=False, save_fig=False):
     ''' 
     function for plotting the test LL vs sigma scalars for PWM real data
     '''     
@@ -133,8 +133,8 @@ def sigma_CV_testLl_plot_PWM(rat_id, stage_filter, K, folds, sigmaList, axes, ti
     for fold in range(0, folds):
         testLl = np.load(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}.npy')
         axes.set_title(title)
-        axes.scatter(np.log(sigmaList[1:]), testLl[1:], color=colormap[color+fold], label=labels[fold])
-        axes.plot(np.log(sigmaList[1:]), testLl[1:], color=colormap[color+fold])
+        # axes.scatter(np.log(sigmaList[1:]), testLl[1:], color=colormap[color+fold])
+        axes.plot(np.log(sigmaList[1:]), testLl[1:], '-o', color=colormap[color+fold], linestyle=linestyle, label=labels[fold])
         if(sigmaList[0]==0):
             axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=colormap[color+fold])
             if (K==1):
@@ -181,8 +181,8 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=Fal
         #axes[1].set_ylabel("weights")
         axes[1].set_xlabel('session')
 
-        axes[0].legend(loc='upper right')
-        axes[1].legend(loc='upper right')
+        axes[0].legend()
+        axes[1].legend()
 
     elif(K >= 2):
         for i in range(0,K):

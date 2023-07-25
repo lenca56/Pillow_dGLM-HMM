@@ -707,7 +707,7 @@ class dGLM_HMM1():
         # initialize zeta = joint posterior of successive latents 
         zeta = np.zeros((T-1, self.k, self.k)).astype(float) 
         # initialize marginal log likelihood p(y)
-        ll = np.empty((maxIter)).astype(float) 
+        ll = np.zeros((maxIter)).astype(float) 
 
         #plotting_weights(initW, sessInd, 'initial weights')
 

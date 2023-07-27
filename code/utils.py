@@ -52,7 +52,7 @@ def reshapeSigma(sigma, K, D):
 
     return newSigma
 
-def reshapeWeights(w, oldSessInd, newSessInd):
+def reshapeWeights(w, oldSessInd, newSessInd, standardGLMHMM=False):
     ''' 
     reshaping weights from session indices of oldSessInd to session indices of newSessInd
 
@@ -75,7 +75,7 @@ def reshapeWeights(w, oldSessInd, newSessInd):
     c = w.shape[3]
     if (T != oldSessInd[-1]):
         raise Exception ("Indices and weights do not match in size")
-    if (len(oldSessInd) != len(newSessInd)):
+    if (len(oldSessInd) != len(newSessInd) and standardGLMHMM==False):
         raise Exception ("old and new indices don't have the same number of sessions")
     
     newT = newSessInd[-1]

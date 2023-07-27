@@ -53,7 +53,7 @@ def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.
 
     return allLl, allP, allW
 
-def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, penaltyW=False, path=None, save=False):
+def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, path=None, save=False):
     ''' 
     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
     first sigma is 0 and is the GLM-HMM fit
@@ -83,8 +83,15 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
             print("Sigma Index " + str(indSigma))
             if (indSigma == 0): 
                 if(sigmaList[0] == 0):
-                    initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                    allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, penaltyW=penaltyW) # sigma does not matter here
+                    if (glmhmmW is not None and glmhmmP is not None):
+                        # best found glmhmm with multiple initializations - constant P and W
+                        print("GLM HMM BEST INIT")
+                        oldSessInd = [0, glmhmmW.shape[0]]
+                        allP[fold][indSigma] = np.copy(glmhmmP) # K x K transition matrix
+                        allW[fold][indSigma] = reshapeWeights(glmhmmW, oldSessInd, trainSessInd[fold], standardGLMHMM=True)
+                    else:
+                        initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+                        allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # sigma does not matter here
                 else:
                     initP, initW = dGLM_HMM.generate_param(sessInd=trainSessInd[fold], transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
             else:
@@ -93,7 +100,7 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
             
             # fitting dGLM-HMM
             if(sigmaList[indSigma] != 0):
-                allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, penaltyW=penaltyW) # fit the model
+                allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # fit the model
         
             # evaluate
             sess = len(trainSessInd[fold]) - 1 # number sessions
@@ -106,12 +113,12 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
 
         if(save==True):
-            np.save(f'../data_PWM/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', trainLl[fold])
-            np.save(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', testLl[fold])
-            np.save(f'../data_PWM/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', allP[fold])
-            np.save(f'../data_PWM/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', allW[fold])
-            np.save(f'../data_PWM/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', np.array(trainSessInd[fold]))
-            np.save(f'../data_PWM/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_penaltyW={penaltyW}', np.array(testSessInd[fold]))
+            np.save(f'../data_PWM/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', trainLl[fold])
+            np.save(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', testLl[fold])
+            np.save(f'../data_PWM/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allP[fold])
+            np.save(f'../data_PWM/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allW[fold])
+            np.save(f'../data_PWM/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(trainSessInd[fold]))
+            np.save(f'../data_PWM/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(testSessInd[fold]))
 
     return trainLl, testLl, allP, allW
 
@@ -256,3 +263,43 @@ def accuracy(x,y,z,s):
     plt.show()
 
     return perf, ind
+
+def find_top_init_plot_loglikelihoods(ll,maxdiff,ax=None,startix=5,plot=True):
+    '''
+    Function from Iris' GLM-HMM github with some alterations
+    
+    Plot the trajectory of the log-likelihoods for multiple fits, identify how many top fits (nearly) match, and 
+    color those trajectories in the plot accordingly
+
+    Parameters
+    ----------
+
+    Returns
+    ----------
+
+    '''
+
+    # replacing the 0's by nan's
+    lls = np.copy(ll)
+    lls[lls==0] = np.nan
+
+    # get the final ll for each fit
+    final_lls = np.array([np.amax(lls[i,~np.isnan(lls[i,:])]) for i in range(lls.shape[0])])
+    
+    # get the index of the top ll
+    bestInd = np.argmax(final_lls)
+    
+    # compute the difference between the top ll and all final lls
+    ll_diffs = final_lls[bestInd] - final_lls
+    
+    # identify te fits where the difference from the top ll is less than maxdiff
+    top_matching_lls = lls[ll_diffs < maxdiff,:]
+    
+    # plot
+    if (plot == True):
+        ax.plot(np.arange(startix,lls.shape[1]),lls.T[startix:], color='black')
+        ax.plot(top_matching_lls.T[startix:], color='red')
+        ax.set_xlabel('iterations of EM', fontsize=16)
+        ax.set_ylabel('log-likelihood', fontsize=16)
+    
+    return bestInd, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits

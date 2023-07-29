@@ -75,14 +75,19 @@ def reshapeWeights(w, oldSessInd, newSessInd, standardGLMHMM=False):
     c = w.shape[3]
     if (T != oldSessInd[-1]):
         raise Exception ("Indices and weights do not match in size")
-    if (len(oldSessInd) != len(newSessInd) and standardGLMHMM==False):
-        raise Exception ("old and new indices don't have the same number of sessions")
-    
-    newT = newSessInd[-1]
-    reshapedW = np.zeros((newT, k, d, c))
-    for sess in range(0,len(oldSessInd)-1):
-        reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,1] = w[oldSessInd[sess],:,:,1]
-    
+    if (standardGLMHMM == True):
+        newT = newSessInd[-1]
+        reshapedW = np.zeros((newT, k, d, c))
+        reshapedW[:,:,:,1] = w[0,:,:,1]
+    else:
+        if (len(oldSessInd) != len(newSessInd) and standardGLMHMM==False):
+            raise Exception ("old and new indices don't have the same number of sessions")
+        
+        newT = newSessInd[-1]
+        reshapedW = np.zeros((newT, k, d, c))
+        for sess in range(0,len(oldSessInd)-1):
+            reshapedW[newSessInd[sess]:newSessInd[sess+1],:,:,1] = w[oldSessInd[sess],:,:,1]
+        
     return reshapedW
 
 def reshapeP_M1_to_M2(P, N):

@@ -302,4 +302,4 @@ def find_top_init_plot_loglikelihoods(ll,maxdiff,ax=None,startix=5,plot=True):
         ax.set_xlabel('iterations of EM', fontsize=16)
         ax.set_ylabel('log-likelihood', fontsize=16)
     
-    return bestInd, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits
+    return bestInd, final_lls, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits

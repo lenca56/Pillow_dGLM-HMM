@@ -87,19 +87,20 @@ def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=
                         # best found glmhmm with multiple initializations - constant P and W
                         print("GLM HMM BEST INIT")
                         oldSessInd = [0, glmhmmW.shape[0]]
-                        allP[fold][indSigma] = np.copy(glmhmmP) # K x K transition matrix
-                        allW[fold][indSigma] = reshapeWeights(glmhmmW, oldSessInd, trainSessInd[fold], standardGLMHMM=True)
+                        initP0 = np.copy(glmhmmP) # K x K transition matrix
+                        initW0 = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
                     else:
                         initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                        allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # sigma does not matter here
+                    # fitting for sigma = 0
+                    allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # sigma does not matter here
                 else:
-                    initP, initW = dGLM_HMM.generate_param(sessInd=trainSessInd[fold], transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
+                    raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
             else:
+                # initializing from previoous fit
                 initP = allP[fold][indSigma-1] 
                 initW = allW[fold][indSigma-1] 
             
-            # fitting dGLM-HMM
-            if(sigmaList[indSigma] != 0):
+                # fitting dGLM-HMM
                 allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # fit the model
         
             # evaluate

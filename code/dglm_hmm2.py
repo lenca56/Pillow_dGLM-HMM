@@ -562,7 +562,7 @@ class dGLM_HMM2():
 
         return -grad
 
-    def fit(self, x, y,  initP, initW, sigma, alpha, globalP, sessInd=None, pi0=None, maxIter=250, tol=1e-3, ):
+    def fit(self, x, y,  initP, initW, sigma, alpha, globalP, sessInd=None, pi0=None, maxIter=250, tol=1e-3 ):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),

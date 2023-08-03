@@ -578,7 +578,7 @@ class dGLM_HMM1():
 
         return -grad
     
-    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3, L2penaltyW=1):
+    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1]):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -605,6 +605,8 @@ class dGLM_HMM1():
             The maximum number of iterations of EM to allow. The default is 300.
         tol : float
             The tolerance value for the loglikelihood to allow early stopping of EM. The default is 1e-3.
+        priorDirP: list of length 2
+            diagonal and off diagonal terms for Dirichlet prior (+1) on transition matrix 
         
         Returns
         -------
@@ -634,6 +636,16 @@ class dGLM_HMM1():
         ll = np.zeros((maxIter)).astype(float) 
 
         #plotting_weights(initW, sessInd, 'initial weights')
+
+        # prior coefficients on transition matrix P
+        priorP = np.zeros((self.k, self.k))
+        if (priorDirP != None):
+            for i in range(0, self.k):
+                for j in range(0, self.k):
+                    if (i==j):
+                        priorP[i, j] = priorDirP[0] # diagonal term
+                    else:
+                        priorP[i, j] = priorDirP[1] # off diagonal term
 
         for iter in range(maxIter):
 
@@ -703,17 +715,18 @@ class dGLM_HMM1():
             # M-step for transition matrix p - for all sessions together
             for i in range(0, self.k):
                 for j in range(0, self.k):
-                    p[i,j] = zeta[:,i,j].sum()/zeta[:,i,:].sum() # closed form update
+                    p[i,j] = (zeta[:,i,j].sum() + priorP[i,j]) / (zeta[:,i,:].sum() + priorP[i,:].sum()) # closed form update
         
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
         
-        # permuting states according to variability across sessions
-        if (sess > 1):
-            sortedStateInd = permute_states(w, sessInd)
-            w = w[:,sortedStateInd,:,:]
-            p = p[sortedStateInd,:][:,sortedStateInd]
+        # CHANGE TO PERMUTE STATES ACCORDING TO ABSOLUTE VALUE IN SENSORY
+        # # permuting states according to variability across sessions
+        # if (sess > 1):
+        #     sortedStateInd = permute_states(w, sessInd)
+        #     w = w[:,sortedStateInd,:,:]
+        #     p = p[sortedStateInd,:][:,sortedStateInd]
 
         return p, w, ll
     

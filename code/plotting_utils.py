@@ -222,8 +222,8 @@ from datetime import date, datetime, timedelta
 
 def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):
     # code from Psytrack
+    p = 5
     df = dfAll[dfAll['subject']==subject]   # Restrict data to the subject specified
-    
     cL = np.tanh(p*df['contrastLeft'])/np.tanh(p)   # tanh transformation of left contrasts
     cR = np.tanh(p*df['contrastRight'])/np.tanh(p)  # tanh transformation of right contrasts
     inputs = dict(cL = np.array(cL)[:, None], cR = np.array(cR)[:, None])

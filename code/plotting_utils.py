@@ -218,5 +218,63 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=Fal
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_PWM_{title}.png', bbox_inches='tight', dpi=400)
 
+from datetime import date, datetime, timedelta
+
+def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):
+    # code from Psytrack
+    df = dfAll[dfAll['subject']==subject]   # Restrict data to the subject specified
+    
+    cL = np.tanh(p*df['contrastLeft'])/np.tanh(p)   # tanh transformation of left contrasts
+    cR = np.tanh(p*df['contrastRight'])/np.tanh(p)  # tanh transformation of right contrasts
+    inputs = dict(cL = np.array(cL)[:, None], cR = np.array(cR)[:, None])
+
+    outData = dict(
+        subject=subject,
+        lab=np.unique(df["lab"])[0],
+        contrastLeft=np.array(df['contrastLeft']),
+        contrastRight=np.array(df['contrastRight']),
+        date=np.array(df['date']),
+        dayLength=np.array(df.groupby(['date','session']).size()),
+        correct=np.array(df['feedbackType']),
+        correctSide=np.array(df['correctSide']),
+        probL=np.array(df['probabilityLeft']),
+        inputs = inputs,
+        y = np.array(df['choice'])
+    )
+
+    easy_trials = (outData['contrastLeft'] > 0.45).astype(int) | (outData['contrastRight'] > 0.45).astype(int)
+    perf = []
+    length = []
+    for d in np.unique(outData['date']):
+        date_trials = (outData['date'] == d).astype(int)
+        inds = (date_trials * easy_trials).astype(bool)
+        perf += [np.average(outData['correct'][inds])]
+        length.append((outData['date'] == d).sum())
+
+    dates = np.unique([datetime.strptime(i, "%Y-%m-%d") for i in outData['date']])
+    dates = np.arange(len(dates)) + 1
+
+    # My plotting function
+
+    l1, = axes[0].plot(dates[:sessStop], perf[:sessStop], color="black", linewidth=1.5, zorder=2) # only look at first 25 days
+    l2, = axes[1].plot(dates[:sessStop], length[:sessStop], color='gray', linestyle='--')
+    # plt.scatter(dates[9], perf[9], c="white", s=30, edgecolors="black", linestyle="--", lw=0.75, zorder=5, alpha=1) # first session >50% accuracy has circle
+
+    axes[0].axhline(0.5, color="black", linestyle="-", lw=1, alpha=0.3, zorder=0)
+
+    # axes[0].set_xticks(np.arange(0,sessStop+1,5))
+    axes[0].set_yticks([0.4,0.6,0.8,1.0])
+    axes[0].set_ylim(0.2,1.0)
+    axes[1].set_ylim(100,1500)
+    # axes[0].set_xlim(1, sessStop + .5)
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    plt.title('Accuracy and session length for IBL mouse ' + subject)
+    axes[0].set_xlabel("days of training")
+    axes[0].set_ylabel('accuracy on easy trials')
+    axes[1].set_ylabel('number of trials')
+    axes[0].legend([l1, l2], ["% correct", "# trials"])
+    plt.subplots_adjust(0,0,1,1) 
+
 
     

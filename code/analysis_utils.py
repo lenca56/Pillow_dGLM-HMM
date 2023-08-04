@@ -13,6 +13,9 @@ from sklearn.model_selection import KFold
 import sys, os
 sys.path.append(os.path.abspath(os.path.join('..', '..', 'LC_PWM_GLM-HMM/code')))
 import io_utils, analysis_utils, plotting_utils
+import warnings
+from pandas.core.common import SettingWithCopyWarning
+warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):
     ''' 
@@ -304,3 +307,36 @@ def find_top_init_plot_loglikelihoods(ll,maxdiff,ax=None,startix=5,plot=True):
         ax.set_ylabel('log-likelihood', fontsize=16)
     
     return bestInd, final_lls, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits
+
+def get_mouse_design(dfAll, subject, sessStop=-1):
+    ''' 
+    function to give design matrix x and output vector y for a given subject until session sessStpo
+    '''
+    data = dfAll[dfAll['subject']==subject]   # Restrict data to the subject specified
+
+    p=5 # as used in Psytrack paper
+    data['cL'] = np.tanh(p*data['contrastLeft'])/np.tanh(p) # tanh transformation of left contrasts
+    data['cR'] = np.tanh(p*data['contrastRight'])/np.tanh(p) # tanh transformation of right contrasts
+
+    # keeping first 40 sessions
+    dateToKeep = np.unique(data['date'])[0:sessStop]
+    dataTemp = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))])
+
+    # design and out matrix
+    x = np.ones((dataTemp.shape[0], 3)) # column 0 is bias
+    x[:,1] = dataTemp['cL'] # cL = contrast left transformed 
+    x[:,2] = dataTemp['cR'] # cR = contrast right transformed
+    y = np.array(dataTemp['choice'])
+    print(y.shape)
+
+    # session start indicies
+    sessInd = [0]
+    for date in dateToKeep :
+        d = dataTemp[dataTemp['date']==date]
+        for sess in np.unique(d['session']):
+            dTemp = d[d['session'] == sess] 
+            dLength = len(dTemp.index.tolist())
+            sessInd.append(sessInd[-1] + dLength)
+    print(sessInd[-1])
+    
+    return x, y, sessInd

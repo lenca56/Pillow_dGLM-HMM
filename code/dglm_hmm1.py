@@ -721,8 +721,9 @@ class dGLM_HMM1():
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
         
-        # CHANGE TO PERMUTE STATES ACCORDING TO ABSOLUTE VALUE IN SENSORY
-        # # permuting states according to variability across sessions
+        # DO THIS OUTSIDE FITTING PROCEDURE
+        
+        # # permuting states according to absolute value of sensory across sessions
         # if (sess > 1):
         #     sortedStateInd = permute_states(w, sessInd)
         #     w = w[:,sortedStateInd,:,:]

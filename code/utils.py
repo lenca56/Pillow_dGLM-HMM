@@ -99,8 +99,10 @@ def reshapeP_M1_to_M2(P, N):
 
 def permute_states(w, sessInd):
     ''' 
-    returning states in decreasing order according to variability of sensory weights across consecutive sessions
+    returning states in decreasing order according to absolute value of sensory weights across consecutive sessions
 
+    assuming that 1st and 2nd columnd are sensory
+    
     Returns
     -------
     sortedInd: list of length k
@@ -109,9 +111,9 @@ def permute_states(w, sessInd):
     k = w.shape[1]
     sess = len(sessInd)-1
     driftState = np.zeros((k,))
-    for s in range(0,sess-1):
+    for s in range(0,sess):
         for i in range(0,k):
-            driftState[i]+= abs(w[sessInd[s+1],i,1,1] - w[sessInd[s],i,1,1]) # not sure about the scale
+            driftState[i]+= abs(w[sessInd[s+1],i,1,1]) + abs(w[sessInd[s],i,2,1]) # not sure about the scale
     sortedInd = list(np.argsort(driftState))
     sortedInd.reverse() # decreasing order
     

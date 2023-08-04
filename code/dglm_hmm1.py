@@ -30,10 +30,11 @@ class dGLM_HMM1():
     def __init__(self, n, k, d, c):
             self.n, self.k, self.d, self.c  = n, k, d, c
     
-    # Iris' code has reversed columns
-    def observation_probability(self, x, w):
+    # Iris' fct has columns reverrsed
+    def log_observation_probability(self, x, w):
         '''
         Calculating observation probabilities for given design matrix x and weight matrix w
+        C = 2 only
 
         Parameters
         ----------
@@ -44,10 +45,10 @@ class dGLM_HMM1():
 
         Returns
         -------
-        phi: Ncurrent x K x C numpy array
-            observation probabilities matrix
-        '''
-        
+        logphi: Ncurrent x K x C numpy array
+                log of observation probabilities matrix (already normalized inside log)
+            '''
+        C = 2
         Ncurrent = x.shape[0]
 
         if (w.ndim == 3): # it means K=1
@@ -58,17 +59,17 @@ class dGLM_HMM1():
         else:
             raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
 
-        phi = np.empty((Ncurrent, K, self.c)) # probability that it is state 1
-        for k in range(0, K):
-            for t in range(0,Ncurrent):
-                phi[t,k,1] = softplus_deriv(-w[t,k,:,1]@x[t])
-                phi[t,k,0] = 1 - phi[t,k,1]
-            
-            # issues with overflow if calculating this way
-            #     phi[:,k,c] = np.exp(-np.sum(w[:,k,:,c]*x,axis=1))
-            # phi[:,k,:]  = np.divide((phi[:,k,:]).T,np.sum(phi[:,k,:],axis=1)).T     
+        logphi = np.empty((Ncurrent, self.k, self.c)) 
+        for k in range(0, self.k):
+            # be careful with soft plus function in relation to obs prob!! as the two cases for c are different
+            logphi[:,k,1] = - softplus(-np.sum(w[:,k,:,1]*x,axis=1))
+            logphi[:,k,0] = - softplus(np.sum(w[:,k,:,1]*x,axis=1))
+        return logphi
 
-        return phi
+    def observation_probability(self, x, w):
+        phi = self.log_observation_probability(self, x, w)
+        phi = np.exp(phi)
+        return phi  
 
     def loss(self, w, x, y, gamma):
         ''' 
@@ -416,9 +417,9 @@ class dGLM_HMM1():
         for t in range(0,T):
             sessW[t,:,:,1] = currentW[:,:]
 
-        phi = self.observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
-        logPhi = np.log(phi) # natural log of observation probabilities
-
+        # log observation probability
+        logPhi = self.log_observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
+        
         # weighted log likelihood term of loss function
         lf = 0
         for t in range(0, T):
@@ -487,8 +488,8 @@ class dGLM_HMM1():
         for t in range(0,T):
             sessW[t,0,:,1] = currentW[:]
 
-        phi = self.observation_probability(x, sessW) # N x 1 x C phi matrix calculated with currentW
-        logPhi = np.log(phi) # natural log of observation probabilities
+        # log observation probability
+        logPhi = self.log_observation_probability(x, sessW) # N x K x C phi matrix calculated with currentW
 
         # weighted log likelihood term of loss function
         lf = 0

@@ -119,6 +119,25 @@ def permute_states(w, sessInd):
     
     return sortedInd
 
+def softplus(x):
+    '''   
+    From Jonathan, computes  f(x) = log (1 + exp(x))
+
+    Used for calculating log of observatin probabilities as -f(-x) = log (e^x / (1 + e^x))
+    '''
+    
+    f = np.zeros((x.shape[0]))
+    indUnder = (x < -20) # underflow
+    indOver = (x > 200) # overflow
+    indMiddle = (x >= - 20) & (x <= 200)
+
+    # approx from Taylor expansion
+    f[indUnder] = np.exp(x[indUnder])
+    f[indOver] = x[indOver]
+    f[indMiddle] = np.log(1 + np.exp(x[indMiddle]))
+
+    return f
+
 def softplus_deriv(x):
     '''
     also sigmoid

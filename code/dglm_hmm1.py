@@ -67,7 +67,7 @@ class dGLM_HMM1():
         return logphi
 
     def observation_probability(self, x, w):
-        phi = self.log_observation_probability(self, x, w)
+        phi = self.log_observation_probability(x, w)
         phi = np.exp(phi)
         return phi  
 

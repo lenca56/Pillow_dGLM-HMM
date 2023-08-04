@@ -239,7 +239,7 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
     
         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
 
-    return trainLl, testLl, allP, allW
+    return trainLl, testLl, allP, allW, trainSessInd, testSessInd
 
 # OLD FUNCTION - REPLACED BY ABOVE ONE
 

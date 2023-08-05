@@ -59,11 +59,12 @@ class dGLM_HMM1():
         else:
             raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
 
-        logphi = np.empty((Ncurrent, self.k, self.c)) 
-        for k in range(0, self.k):
+        logphi = np.empty((Ncurrent, K, self.c)) 
+        for k in range(0, K):
             # be careful with soft plus function in relation to obs prob!! as the two cases for c are different
-            logphi[:,k,1] = - softplus(-np.sum(w[:,k,:,1]*x,axis=1))
-            logphi[:,k,0] = - softplus(np.sum(w[:,k,:,1]*x,axis=1))
+            logphi[:,k,1] = - softplus(np.sum(w[:,k,:,1]*x,axis=1))
+            logphi[:,k,0] = - softplus(-np.sum(w[:,k,:,1]*x,axis=1))
+            
         return logphi
 
     def observation_probability(self, x, w):

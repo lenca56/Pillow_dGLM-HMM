@@ -241,78 +241,6 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
 
     return trainLl, testLl, allP, allW, trainSessInd, testSessInd
 
-# OLD FUNCTION - REPLACED BY ABOVE ONE
-
-# def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, path=None, save=False):
-#     ''' 
-#     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
-#     first sigma is 0 and is the GLM-HMM fit
-#     only suited for PWM data for now
-#     '''
-#     x, y = io_utils.prepare_design_matrices(rat_id=rat_id, path=path, psychometric=True, cutoff=10, stage_filter=stage_filter, overwrite=False)
-#     sessInd = list(io_utils.session_start(rat_id=rat_id, path=path, psychometric=True, cutoff=10, stage_filter=stage_filter)) 
-#     trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data_per_session(x, y, sessInd, folds=folds, random_state=1)
-#     D = trainX[0].shape[1]
-#     C = 2 # only looking at binomial classes
-
-#     trainLl = [np.zeros((len(sigmaList), maxiter)) for i in range(0,folds)] 
-#     testLl = [np.zeros((len(sigmaList))) for i in range(0,folds)]
-#     allP = [np.zeros((len(sigmaList), K,K)) for i in range(0,folds)] 
-#     allW = [] 
-
-#     for fold in [0]: # fitting single fold     # fittinng all folds -> range(0,folds): 
-#         # initializing parameters for each fold
-#         N = trainX[fold].shape[0]
-#         oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
-#         dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
-#         allW.append(np.zeros((len(sigmaList), N,K,D,C)))
-#         trainY[fold] = trainY[fold].astype(int)
-#         testY[fold] = testY[fold].astype(int)
-
-#         for indSigma in range(0,len(sigmaList)): 
-#             print("Sigma Index " + str(indSigma))
-#             if (indSigma == 0): 
-#                 if(sigmaList[0] == 0):
-#                     if (glmhmmW is not None and glmhmmP is not None):
-#                         # best found glmhmm with multiple initializations - constant P and W
-#                         print("GLM HMM BEST INIT")
-#                         oldSessInd = [0, glmhmmW.shape[0]]
-#                         initP0 = np.copy(glmhmmP) # K x K transition matrix
-#                         initW0 = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
-#                     else:
-#                         initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-#                     # fitting for sigma = 0
-#                     allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # sigma does not matter here
-#                 else:
-#                     raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
-#             else:
-#                 # initializing from previoous fit
-#                 initP = allP[fold][indSigma-1] 
-#                 initW = allW[fold][indSigma-1] 
-            
-#                 # fitting dGLM-HMM
-#                 allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # fit the model
-        
-#             # evaluate
-#             sess = len(trainSessInd[fold]) - 1 # number sessions
-#             testPhi = dGLM_HMM.observation_probability(testX[fold], reshapeWeights(allW[fold][indSigma], trainSessInd[fold], testSessInd[fold]))
-#             for s in range(0, sess):
-#                 # evaluate on test data for each session separately
-#                 _, _, temp = dGLM_HMM.forward_pass(testY[fold][testSessInd[fold][s]:testSessInd[fold][s+1]],allP[fold][indSigma],testPhi[testSessInd[fold][s]:testSessInd[fold][s+1]])
-#                 testLl[fold][indSigma] += temp
-    
-#         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
-
-#         if(save==True):
-#             np.save(f'../data_PWM/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', trainLl[fold])
-#             np.save(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', testLl[fold])
-#             np.save(f'../data_PWM/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allP[fold])
-#             np.save(f'../data_PWM/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allW[fold])
-#             np.save(f'../data_PWM/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(trainSessInd[fold]))
-#             np.save(f'../data_PWM/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(testSessInd[fold]))
-
-#     return trainLl, testLl, allP, allW
-
 def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=None, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], modelType='drift', save=False):
     ''' 
     function for evaluating previously fit models with different sigmas on the same test set of simulated data
@@ -529,4 +457,76 @@ def get_mouse_design(dfAll, subject, sessStop=-1):
 #             array_testY[i][testSessInd[i][sess]:testSessInd[i][sess+1]] = testY[i][sess]
             
 #     return array_trainX, array_trainY, trainSessInd, array_testX, array_testY, testSessInd
+
+# OLD FUNCTION - REPLACED BY ABOVE ONE
+
+# def fit_eval_CV_multiple_sigmas_PWM(rat_id, stage_filter, K, folds=3, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, path=None, save=False):
+#     ''' 
+#     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
+#     first sigma is 0 and is the GLM-HMM fit
+#     only suited for PWM data for now
+#     '''
+#     x, y = io_utils.prepare_design_matrices(rat_id=rat_id, path=path, psychometric=True, cutoff=10, stage_filter=stage_filter, overwrite=False)
+#     sessInd = list(io_utils.session_start(rat_id=rat_id, path=path, psychometric=True, cutoff=10, stage_filter=stage_filter)) 
+#     trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data_per_session(x, y, sessInd, folds=folds, random_state=1)
+#     D = trainX[0].shape[1]
+#     C = 2 # only looking at binomial classes
+
+#     trainLl = [np.zeros((len(sigmaList), maxiter)) for i in range(0,folds)] 
+#     testLl = [np.zeros((len(sigmaList))) for i in range(0,folds)]
+#     allP = [np.zeros((len(sigmaList), K,K)) for i in range(0,folds)] 
+#     allW = [] 
+
+#     for fold in [0]: # fitting single fold     # fittinng all folds -> range(0,folds): 
+#         # initializing parameters for each fold
+#         N = trainX[fold].shape[0]
+#         oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
+#         dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
+#         allW.append(np.zeros((len(sigmaList), N,K,D,C)))
+#         trainY[fold] = trainY[fold].astype(int)
+#         testY[fold] = testY[fold].astype(int)
+
+#         for indSigma in range(0,len(sigmaList)): 
+#             print("Sigma Index " + str(indSigma))
+#             if (indSigma == 0): 
+#                 if(sigmaList[0] == 0):
+#                     if (glmhmmW is not None and glmhmmP is not None):
+#                         # best found glmhmm with multiple initializations - constant P and W
+#                         print("GLM HMM BEST INIT")
+#                         oldSessInd = [0, glmhmmW.shape[0]]
+#                         initP0 = np.copy(glmhmmP) # K x K transition matrix
+#                         initW0 = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
+#                     else:
+#                         initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+#                     # fitting for sigma = 0
+#                     allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # sigma does not matter here
+#                 else:
+#                     raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
+#             else:
+#                 # initializing from previoous fit
+#                 initP = allP[fold][indSigma-1] 
+#                 initW = allW[fold][indSigma-1] 
+            
+#                 # fitting dGLM-HMM
+#                 allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW) # fit the model
+        
+#             # evaluate
+#             sess = len(trainSessInd[fold]) - 1 # number sessions
+#             testPhi = dGLM_HMM.observation_probability(testX[fold], reshapeWeights(allW[fold][indSigma], trainSessInd[fold], testSessInd[fold]))
+#             for s in range(0, sess):
+#                 # evaluate on test data for each session separately
+#                 _, _, temp = dGLM_HMM.forward_pass(testY[fold][testSessInd[fold][s]:testSessInd[fold][s+1]],allP[fold][indSigma],testPhi[testSessInd[fold][s]:testSessInd[fold][s+1]])
+#                 testLl[fold][indSigma] += temp
+    
+#         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
+
+#         if(save==True):
+#             np.save(f'../data_PWM/trainLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', trainLl[fold])
+#             np.save(f'../data_PWM/testLl_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', testLl[fold])
+#             np.save(f'../data_PWM/P_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allP[fold])
+#             np.save(f'../data_PWM/W_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', allW[fold])
+#             np.save(f'../data_PWM/trainSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(trainSessInd[fold]))
+#             np.save(f'../data_PWM/testSessInd_PWM_{rat_id}_sf={stage_filter}_{K}_state_fold-{fold}_multiple_sigmas_L2penaltyW={L2penaltyW}', np.array(testSessInd[fold]))
+
+#     return trainLl, testLl, allP, allW
 

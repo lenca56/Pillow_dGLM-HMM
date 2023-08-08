@@ -14,8 +14,8 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join('..', '..', 'LC_PWM_GLM-HMM/code')))
 import io_utils, analysis_utils, plotting_utils
 import warnings
-from pandas.errors import SettingWithCopyWarning
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+# from pandas.errors import SettingWithCopyWarning
+# warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 def split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
     ''' 
@@ -352,7 +352,7 @@ def find_top_init_plot_loglikelihoods(ll,maxdiff,ax=None,startix=5,plot=True):
     
     return bestInd, final_lls, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits
 
-def get_mouse_design(dfAll, subject, sessStop=-1):
+def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
     ''' 
     function to give design matrix x and output vector y for a given subject until session sessStpo
     '''
@@ -366,12 +366,20 @@ def get_mouse_design(dfAll, subject, sessStop=-1):
     dateToKeep = np.unique(data['date'])[0:sessStop]
     dataTemp = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))])
 
+
     # design and out matrix
-    x = np.ones((dataTemp.shape[0], 3)) # column 0 is bias
+    x = np.ones((dataTemp.shape[0], D)) # column 0 is bias
     x[:,1] = dataTemp['cL'] # cL = contrast left transformed 
     x[:,2] = dataTemp['cR'] # cR = contrast right transformed
     y = np.array(dataTemp['choice'])
-    print(y.shape)
+    if (D>=4):
+        # previous chioce
+        # not taking into account first and last of each session (probably no effect of that)
+        x[1:,3] = y[0:-1]
+    if (D>=5):
+        # previous rewarded
+        # not taking into account first and last of each session (probably no effect of that)
+        x[1:,4] = np.array(dataTemp['correctSide'])[0:-1]
 
     # session start indicies
     sessInd = [0]
@@ -381,7 +389,6 @@ def get_mouse_design(dfAll, subject, sessStop=-1):
             dTemp = d[d['session'] == sess] 
             dLength = len(dTemp.index.tolist())
             sessInd.append(sessInd[-1] + dLength)
-    print(sessInd[-1])
     
     return x, y, sessInd
 

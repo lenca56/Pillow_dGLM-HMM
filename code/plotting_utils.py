@@ -113,7 +113,11 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes):
     axes.set_xlabel("sigma")
     axes.legend()
 
-def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=False):
+def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], title='', save_fig=False):
+    # permute weights accordinng to highest sensory
+    sortedStateInd = get_states_order(w, sessInd)
+    w = w[:,sortedStateInd,:,:]
+
     K = w.shape[1]
     sess = len(sessInd)-1
 
@@ -137,8 +141,8 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=Fal
         axes[0].set_ylabel("weights")
         axes[0].set_xlabel('session')
         # axes[0].set_yticks([-2,0,2])
-        # axes[0].set_ylim(-3,3)
-        # axes[1].set_ylim(-0.2,2.1)
+        axes[0].set_ylim(yLim[0:2])
+        axes[1].set_ylim(yLim[2:4])
         # axes[1].set_yticks([0,2])
         #axes[1].set_ylabel("weights")
         axes[1].set_xlabel('session')
@@ -166,6 +170,8 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=Fal
             axes[i,0].set_title(f'State {i+1}')
             axes[i,1].set_title(f'State {i+1}')
             axes[i,0].set_ylabel("weights")
+            axes[i,0].set_ylim(yLim[0:2])
+            axes[i,1].set_ylim(yLim[2:4])
             # axes[i,0].set_yticks([-2,0,2])
             # axes[i,0].set_ylim(-3,3)
             # axes[i,1].set_ylim(-0.2,2.1)
@@ -179,6 +185,55 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, title='', save_fig=Fal
 
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_PWM_{title}.png', bbox_inches='tight', dpi=400)
+
+def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None):
+    # permute weights accordinng to highest sensory
+    sortedStateInd = get_states_order(w, sessInd)
+    w = w[:,sortedStateInd,:,:]
+
+    D = w.shape[2]
+
+    K = w.shape[1]
+    sess = len(sessInd)-1
+
+    if (K==1):
+        axes.axhline(0, alpha=0.3, color='black',linestyle='--')
+        for d in range(0, D):
+            axes.plot(range(1,sess+1),w[sessInd[:-1],0,d,1],color=colors[d],linewidth=5,label=labels[d], alpha=0.8)
+        axes.set_ylabel("weights")
+        axes.set_xlabel('session')
+        axes.set_ylim(yLim)
+        axes.set_title(f'State 1')
+        axes.legend()
+    else:
+        for k in range(0,K):
+            axes[k].axhline(0, alpha=0.3, color='black',linestyle='--')
+            for d in range(0, D):
+                axes[k].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[d],linewidth=5,label=labels[d], alpha=0.8)
+            axes[k].set_ylim(yLim)
+            axes[k].set_ylabel("weights")
+            axes[k].set_title(f'State {k+1}')
+            axes[k].legend()
+        axes[K-1].set_xlabel('session')
+
+def plot_transition_matrix(P, sortedStateInd):
+    ''' 
+    function that plots heatmap of transition matrix (assumed constant)
+
+    Parameters
+    ----------
+    P: K x K numpy array
+        transition matrix to be plotted 
+
+    Returns
+    ----------
+    '''
+    P = P[sortedStateInd,:][:,sortedStateInd]
+
+    K = P.shape[0]
+    s = sns.heatmap(np.round(P,3),annot=True,cmap='BuPu', fmt='g')
+    s.set(xlabel='state at time t+1', ylabel='state at time t', title='Recovered transition matrix P', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
+    fig = s.get_figure()
 
 from datetime import date, datetime, timedelta
 

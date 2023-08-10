@@ -87,7 +87,7 @@ def plotting_state_occupancy(z, axes, title='', save_fig=False):
         plt.savefig(f'../figures/State_Occupancy-{title}.png', bbox_inches='tight', dpi=400)
 
 
-def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes):
+def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
     '''  
     function that plots test LL as a function of sigma 
 
@@ -102,7 +102,7 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes):
     sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
     sigmaListOdd = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
     # sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
-    axes.plot(np.log(sigmaList[1:]), testLl[1:], '-o', color=colormap[color], label=label)
+    axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=colormap[color], label=label)
     if(sigmaList[0]==0):
         axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=colormap[color])
         axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,4)}' for sigma in sigmaListOdd])
@@ -122,6 +122,8 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], titl
     sess = len(sessInd)-1
 
     if (K==1):
+        axes[0].axhline(0, alpha=0.3, color='black',linestyle='--')
+        axes[1].axhline(0, alpha=0.3, color='black',linestyle='--')
         if (sessStop==None):
             axes[1].plot(range(1,sess+1),w[sessInd[:-1],0,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
             axes[1].plot(range(1,sess+1),w[sessInd[:-1],0,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
@@ -152,6 +154,8 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], titl
 
     elif(K >= 2):
         for i in range(0,K):
+            axes[i,0].axhline(0, alpha=0.3, color='black',linestyle='--')
+            axes[i,1].axhline(0, alpha=0.3, color='black',linestyle='--')
             if (sessStop==None):
                 axes[i,1].plot(range(1,sess+1),w[sessInd[:-1],i,4,1],color='#59C3C3', linewidth=5, label='previous choice', alpha=0.8)
                 axes[i,1].plot(range(1,sess+1),w[sessInd[:-1],i,5,1],color='#9593D9',linewidth=5, label='previous correct', alpha=0.8)
@@ -234,6 +238,21 @@ def plot_transition_matrix(P, sortedStateInd):
     s = sns.heatmap(np.round(P,3),annot=True,cmap='BuPu', fmt='g')
     s.set(xlabel='state at time t+1', ylabel='state at time t', title='Recovered transition matrix P', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
     fig = s.get_figure()
+
+def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
+    stateColors = ['darkblue','green','orange']
+    s = len(sessions)
+    if (s>5):
+        raise Exception("Cant have more than 5 example sessions to plot")
+    K = gamma.shape[1]
+    fig, axes = plt.subplots(3,1, figsize=(20,15))
+    for i in range(0,s):
+        axes[i].set_title('session ' + str(sessions[i]))
+        axes[-1].set_xlabel('trials')
+        axes[i].set_ylabel('posterior latent')
+        for k in range(0,K):
+            axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=stateColors[k], label=f'state {k+1}')
+        axes[i].legend()
 
 from datetime import date, datetime, timedelta
 

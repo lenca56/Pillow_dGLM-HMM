@@ -732,6 +732,33 @@ class dGLM_HMM1():
         #     p = p[sortedStateInd,:][:,sortedStateInd]
 
         return p, w, ll
+
+    def get_posterior_latent(self, p, w, x, y, sessInd, pi0):
+        # permute states
+        sortedStateInd = get_states_order(w, sessInd)
+        w = w[:,sortedStateInd,:,:]
+        p = p[sortedStateInd,:][:,sortedStateInd]
+
+        T = x.shape[0]
+
+        if sessInd is None:
+            sessInd = [0, T]
+            sess = 1 # equivalent to saying the entire data set has one session
+        else:
+            sess = len(sessInd)-1 # total number of sessions 
+
+        gamma = np.zeros((T, self.k)).astype(float) 
+        phi = self.observation_probability(x, w)
+
+        for s in range(0,sess):
+            # E step - forward and backward passes given theta_old (= previous w and p)
+            alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)
+            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, pi0=pi0)
+            gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
+
+            gamma[sessInd[s]:sessInd[s+1],:] = gammaSess[:,:] 
+        
+        return gamma
     
 
     # OLD SPLIT DATA FUNCTION

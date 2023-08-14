@@ -220,6 +220,25 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None):
             axes[k].legend()
         axes[K-1].set_xlabel('session')
 
+def plotting_weights_per_feature(w, sessInd, axes, yLim=[-3,3], colors=colorsStates, labels=myFeatures):
+    # permute weights accordinng to highest sensory
+    sortedStateInd = get_states_order(w, sessInd)
+    w = w[:,sortedStateInd,:,:]
+    D = w.shape[2]
+    K = w.shape[1]
+    sess = len(sessInd)-1
+
+    for d in range(0,D):
+        axes[d].axhline(0, alpha=0.3, color='black',linestyle='--')
+        for k in range(0, K):
+            axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=5,label=f'state {k+1}', alpha=0.8)
+        axes[d].set_yticks(np.arange(-5,5,1))
+        axes[d].set_ylim(yLim[d])
+        axes[d].set_ylabel("weights")
+        axes[d].set_title(f'{labels[d]}')
+        axes[d].legend(loc = 'upper right')
+    axes[D-1].set_xlabel('session')
+
 def plot_transition_matrix(P, sortedStateInd):
     ''' 
     function that plots heatmap of transition matrix (assumed constant)

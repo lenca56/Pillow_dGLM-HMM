@@ -12,6 +12,10 @@ from scipy.stats import multivariate_normal
 
 colors_dark = ['darkblue','darkred','darkgreen','darkgoldenrod']
 colors_light = ['royalblue','indianred','limegreen','gold']
+colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',"#2369BD","#A9373B",'#99CC66','#59C3C3','#9593D9']]
+colorsStates = ['darkblue','green','orange','purple']
+myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
+
 
 def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
     ''' 

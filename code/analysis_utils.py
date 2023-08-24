@@ -377,8 +377,8 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
     elif (D==4):
         x[:,1] = dataTemp['contrastLeft'] - dataTemp['contrastRight'] # 'stimulus intensity'
         x[:,1] = (x[:,1] - np.mean(x[:,1])) / np.std(x[:,1]) # z-scored
-        x[1:,2] = y[0:-1] # previous chioce
-        x[1:,3] = np.array(dataTemp['correctSide'])[0:-1] # previous reward
+        x[1:,2] = 2 * y[0:-1] - 1 # previous chioce as in Zoe's
+        x[1:,3] = 2 * np.array(dataTemp['correctSide'])[0:-1] - 1 # previous reward as in Zoe's
     elif (D==3):
         x[:,1] = dataTemp['cL'] # contrast left transformed 
         x[:,2] = dataTemp['cR'] # contrast right transformed
@@ -386,7 +386,7 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
         x[:,1] = dataTemp['cL'] # contrast left transformed 
         x[:,2] = dataTemp['cR'] # contrast right transformed
         # not taking into account first and last of each session (probably no effect of that)Z2
-        x[1:,3] = y[0:-1] # previous chioce
+        x[1:,3] = y[0:-1] # previous choice
         x[1:,4] = np.array(dataTemp['correctSide'])[0:-1] # previous rewarded
         
     # session start indicies

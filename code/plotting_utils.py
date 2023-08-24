@@ -10,12 +10,12 @@ from scipy.optimize import minimize
 from utils import *
 from scipy.stats import multivariate_normal
 
+colormap = sns.color_palette("viridis")
 colors_dark = ['darkblue','darkred','darkgreen','darkgoldenrod']
 colors_light = ['royalblue','indianred','limegreen','gold']
 colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',"#2369BD","#A9373B",'#99CC66','#59C3C3','#9593D9']]
 colorsStates = ['darkblue','green','orange','purple']
 myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
-
 
 def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False):
     ''' 
@@ -90,7 +90,6 @@ def plotting_state_occupancy(z, axes, title='', save_fig=False):
     if(save_fig==True):
         plt.savefig(f'../figures/State_Occupancy-{title}.png', bbox_inches='tight', dpi=400)
 
-
 def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
     '''  
     function that plots test LL as a function of sigma 
@@ -102,22 +101,22 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
     sigmaList: list
 
     '''
-    colormap = sns.color_palette("viridis")
     sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
     sigmaListOdd = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
     # sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
-    axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=colormap[color], label=label)
+    axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label)
     if(sigmaList[0]==0):
-        axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=colormap[color])
+        axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color)
         axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,4)}' for sigma in sigmaListOdd])
     else:
-        axes.scatter(np.log(sigmaList[0]), testLl[0], color=colormap[color])
+        axes.scatter(np.log(sigmaList[0]), testLl[0], color=color)
         axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma,4)}' for sigma in sigmaListEven])
     axes.set_ylabel("Test LL (per trial)")
     axes.set_xlabel("sigma")
-    axes.legend()
+    axes.legend(loc='lower right')
 
 def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], title='', save_fig=False):
+
     # permute weights accordinng to highest sensory
     sortedStateInd = get_states_order(w, sessInd)
     w = w[:,sortedStateInd,:,:]
@@ -194,10 +193,11 @@ def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], titl
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_PWM_{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None):
-    # permute weights accordinng to highest sensory
-    sortedStateInd = get_states_order(w, sessInd)
-    w = w[:,sortedStateInd,:,:]
+def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', sortedStateInd=None):
+
+    # permute weights 
+    if (sortedStateInd is not None):
+        w = w[:,sortedStateInd,:,:]
 
     D = w.shape[2]
 
@@ -205,9 +205,9 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None):
     sess = len(sessInd)-1
 
     if (K==1):
-        axes.axhline(0, alpha=0.3, color='black',linestyle='--')
+        axes.axhline(0, alpha=0.3, color='black',linestyle='-')
         for d in range(0, D):
-            axes.plot(range(1,sess+1),w[sessInd[:-1],0,d,1],color=colors[d],linewidth=5,label=labels[d], alpha=0.8)
+            axes.plot(range(1,sess+1),w[sessInd[:-1],0,d,1],color=colors[d],linewidth=linewidth,label=labels[d], alpha=0.8, linestyle=linestyle)
         axes.set_ylabel("weights")
         axes.set_xlabel('session')
         axes.set_ylim(yLim)
@@ -215,32 +215,34 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None):
         axes.legend()
     else:
         for k in range(0,K):
-            axes[k].axhline(0, alpha=0.3, color='black',linestyle='--')
+            axes[k].axhline(0, alpha=0.2, color='black',linestyle='-')
             for d in range(0, D):
-                axes[k].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[d],linewidth=5,label=labels[d], alpha=0.8)
+                axes[k].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[d],linewidth=linewidth,label=labels[d], alpha=0.8, linestyle=linestyle)
             axes[k].set_ylim(yLim)
             axes[k].set_ylabel("weights")
             axes[k].set_title(f'State {k+1}')
             axes[k].legend()
         axes[K-1].set_xlabel('session')
 
-def plotting_weights_per_feature(w, sessInd, axes, yLim=[-3,3], colors=colorsStates, labels=myFeatures):
-    # permute weights accordinng to highest sensory
-    sortedStateInd = get_states_order(w, sessInd)
-    w = w[:,sortedStateInd,:,:]
+def plotting_weights_per_feature(w, sessInd, axes, yLim=[-3,3], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
+    
+    # permute weights 
+    if (sortedStateInd is not None):
+        w = w[:,sortedStateInd,:,:]
+
     D = w.shape[2]
     K = w.shape[1]
     sess = len(sessInd)-1
 
     for d in range(0,D):
-        axes[d].axhline(0, alpha=0.3, color='black',linestyle='--')
+        axes[d].axhline(0, alpha=0.3, color='black',linestyle='-')
         for k in range(0, K):
-            axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=5,label=f'state {k+1}', alpha=0.8)
-        axes[d].set_yticks(np.arange(-5,5,1))
+            axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=f'state {k+1}', alpha=0.8, linestyle=linestyle)
         axes[d].set_ylim(yLim[d])
         axes[d].set_ylabel("weights")
         axes[d].set_title(f'{labels[d]}')
-        axes[d].legend(loc = 'upper right')
+        if (legend==True):
+            axes[d].legend(loc = 'lower right')
     axes[D-1].set_xlabel('session')
 
 def plot_transition_matrix(P, sortedStateInd):

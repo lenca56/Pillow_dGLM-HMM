@@ -101,19 +101,21 @@ def get_states_order(w, sessInd):
     ''' 
     returning states in decreasing order according to absolute value of sensory weights across consecutive sessions
 
-    assuming that 1st and 2nd columnd are sensory
-    
     Returns
     -------
     sortedInd: list of length k
         permutation of [0,1,..,k-1] in order described above
     '''
     k = w.shape[1]
+    D = w.shape[2]
     sess = len(sessInd)-1
     driftState = np.zeros((k,))
     for s in range(0,sess):
         for i in range(0,k):
-            driftState[i]+= abs(w[sessInd[s],i,1,1]) + abs(w[sessInd[s],i,2,1]) # not sure about the scale
+            if (D==5):
+                driftState[i]+= abs(w[sessInd[s],i,1,1]) + abs(w[sessInd[s],i,2,1]) # not sure about the scale
+            elif (D==4):
+                driftState[i]+= abs(w[sessInd[s],i,1,1]) 
     sortedInd = list(np.argsort(driftState))
     sortedInd.reverse() # decreasing order
     

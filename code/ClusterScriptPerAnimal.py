@@ -18,12 +18,12 @@ dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject'])
 
 # setting hyperparameters
-sigmaList = [0] + [1] #[10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
+sigmaList = [0] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
 L2penaltyW = 1
 priorDirP = None
 maxiter = 300
 splitFolds = 4
-fitFolds = 1 # actually 4
+fitFolds = 4 # actually 4
 
 initParam = 'all' # initializing for best GLM-HMM fit from all animals or subject-specific one
 

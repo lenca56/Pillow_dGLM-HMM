@@ -9,7 +9,7 @@
 #SBATCH --time=30:00:00          # total run time limit (HH:MM:SS)
 #SBATCH --array=0-10              # job array with index values 0, 1, ..., 10
 #SBATCH --mail-type=all          # send email on job start, end and fault
-#SBATCH --mail-user=<YourNetID>@princeton.edu
+#SBATCH --mail-user=cuturela@princeton.edu
 
 echo "My SLURM_ARRAY_JOB_ID is $SLURM_ARRAY_JOB_ID."
 echo "My SLURM_ARRAY_TASK_ID is $SLURM_ARRAY_TASK_ID"

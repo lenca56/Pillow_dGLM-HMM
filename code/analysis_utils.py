@@ -199,7 +199,6 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
     for fold in range(0, fitFolds):
         # initializing parameters for each fold
         N = trainX[fold].shape[0]
-        print(f'Fold {fold} training size {N}')
         oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
         dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
         allW.append(np.zeros((len(sigmaList), N,K,D,C)))
@@ -207,11 +206,9 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
         testY[fold] = testY[fold].astype(int)
 
         for indSigma in range(0,len(sigmaList)): 
-            print("Sigma Index " + str(indSigma))
             if (indSigma == 0): 
                 if(sigmaList[0] == 0): 
                     if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
-                        print("GLM HMM GIVEN INIT")
                         oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
                         allP[fold][indSigma] = np.copy(glmhmmP) # K x K transition matrix
                         allW[fold][indSigma] = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)

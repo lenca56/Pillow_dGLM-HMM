@@ -10,6 +10,8 @@ import dglm_hmm1
 from pandas.errors import SettingWithCopyWarning
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 import sys
+import os
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
@@ -28,12 +30,10 @@ initParam = 'all' # initializing for best GLM-HMM fit from all animals or subjec
 D = 4 # number of features
 
 sessStop = -1 # last session to use in fitting
-subject = subjectsWitten[int(sys.argv[1])] # subject to fit
-print(subject)
+subject = subjectsWitten[idx] # subject to fit
 # fitting for K = 1,2,3,4
 for K in [1]:
     x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
-    print(x.shape)
 
     if (initParam == 'all'):
         glmhmmW = np.load(f'../data_IBL/W_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')

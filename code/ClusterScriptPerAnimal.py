@@ -1,4 +1,3 @@
-from IPython.display import clear_output
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,7 +9,6 @@ from analysis_utils import *
 import dglm_hmm1
 from pandas.errors import SettingWithCopyWarning
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
-
 import sys
 
 ibl_data_path = '../data_IBL'
@@ -32,19 +30,19 @@ D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 subject = subjectsWitten[int(sys.argv[1])] # subject to fit
 print(subject)
-# fitting for K = 1,2,3,4
-for K in [1,2,3,4]:
-    x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
-    print(x.shape)
+# # fitting for K = 1,2,3,4
+# for K in [1,2,3,4]:
+#     x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
+#     print(x.shape)
 
-    if (initParam == 'all'):
-        glmhmmW = np.load(f'../data_IBL/W_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-        glmhmmP = np.load(f'../data_IBL/P_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-    elif(initParam == 'subject'):
-        glmhmmW = np.load(f'../data_IBL/W_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-        glmhmmP = np.load(f'../data_IBL/P_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
+#     if (initParam == 'all'):
+#         glmhmmW = np.load(f'../data_IBL/W_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
+#         glmhmmP = np.load(f'../data_IBL/P_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
+#     elif(initParam == 'subject'):
+#         glmhmmW = np.load(f'../data_IBL/W_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
+#         glmhmmP = np.load(f'../data_IBL/P_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
 
-    np.save(f'../data_IBL/{subject}-Check', x)
+#     np.save(f'../data_IBL/{subject}-Check', x)
     # # fitting
     # trainLl, testLl, allP, allW, trainSessInd, testSessInd = fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds=splitFolds, fitFolds=fitFolds, sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP)
         

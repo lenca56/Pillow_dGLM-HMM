@@ -12,7 +12,7 @@ import seaborn as sns
 from sklearn.model_selection import KFold
 import sys, os
 sys.path.append(os.path.abspath(os.path.join('..', '..', 'LC_PWM_GLM-HMM/code')))
-import io_utils, analysis_utils, plotting_utils
+import analysis_utils, plotting_utils
 import warnings
 # from pandas.errors import SettingWithCopyWarning
 # warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)

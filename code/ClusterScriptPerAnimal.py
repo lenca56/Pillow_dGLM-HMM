@@ -23,7 +23,7 @@ L2penaltyW = 1
 priorDirP = None
 maxiter = 300
 splitFolds = 4
-fitFolds = 1 # actually 4
+fitFolds = 4 # actually 4
 
 initParam = 'all' # initializing for best GLM-HMM fit from all animals or subject-specific one
 
@@ -32,7 +32,7 @@ D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 subject = subjectsWitten[idx] # subject to fit
 # fitting for K = 1,2,3,4
-for K in [1]:
+for K in [1,2,3,4]:
     x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
 
     if (initParam == 'all'):

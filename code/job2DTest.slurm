@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dGLM-HMM1perAnimalSigma2D     # create a short name for your job
+#SBATCH --job-name=dGLM-HMM1perAnimalSigma2DTest     # create a short name for your job
 #SBATCH --nodes=1                # node count
 #SBATCH --ntasks=1               # total number of tasks across all nodes
 #SBATCH --cpus-per-task=1        # cpu-cores per task (>1 if multi-threaded tasks)
@@ -12,4 +12,4 @@ module purge
 module load anaconda3/2023.3
 conda activate dglmhmm
 
-python ClusterScriptSigma2D.py 0
+python ClusterScriptSigma2D.py 131

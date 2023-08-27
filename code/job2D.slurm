@@ -17,4 +17,4 @@ module purge
 module load anaconda3/2023.3
 conda activate dglmhmm
 
-python ClusterScriptPerAnimal2D.py
+python ClusterScriptSigma2D.py

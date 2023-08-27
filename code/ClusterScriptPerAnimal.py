@@ -35,7 +35,7 @@ L2penaltyW = 1
 priorDirP = None
 maxiter = 300
 splitFolds = 4
-fitFolds = 4 # actually 4
+fitFolds = 4 
 
 initParam = 'all' # initializing for best GLM-HMM fit from all animals or subject-specific one
 D = 4 # number of features

@@ -27,7 +27,8 @@ for subject in subjectsWitten:
             z += 1
 
 # read from cluster array in order to get parallelizations
-idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+# idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+idx = int(sys.argv[1])
 subject = df.loc[idx,'subject']
 K = df.loc[idx,'K']
 fold = df.loc[idx,'fold']

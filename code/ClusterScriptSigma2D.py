@@ -46,7 +46,6 @@ D = 4 # number of features
 stimCol = [1]
 
 sessStop = -1 # last session to use in fitting
-subject = subjectsWitten[idx] # subject to fit
 x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
 trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data(x, y, sessInd, folds=splitFolds, blocks=10, random_state=1)
 

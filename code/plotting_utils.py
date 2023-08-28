@@ -113,7 +113,8 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
         axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma,4)}' for sigma in sigmaListEven])
     axes.set_ylabel("Test LL (per trial)")
     axes.set_xlabel("sigma")
-    axes.legend(loc='lower right')
+    if (label is not None):
+        axes.legend(loc='lower right')
 
 def plotting_weights_PWM(w, sessInd, axes, sessStop=None, yLim=[-3,3,-1,1], title='', save_fig=False):
 

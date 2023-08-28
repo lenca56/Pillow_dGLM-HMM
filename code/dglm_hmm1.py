@@ -760,6 +760,23 @@ class dGLM_HMM1():
         
         return gamma
     
+    def get_test_accuracy(self, testX, testY, testSessInd, p, w, pi0=None):
+        T = testX.shape[0]
+        D = testX.shape[1]
+        C = 2
+
+        gamma = self.get_posterior_latent(p, w, testX, testY, testSessInd, pi0=pi0)
+        phi = self.observation_probability(testX, w)
+
+        pChoice = np.zeros((gamma.shape[0],C))
+        pChoice[:,1] = np.sum(np.multiply(gamma, phi[:,:,1]), axis=1)
+        pChoice[:,0] = 1 - pChoice[:,1]
+        choiceHard = np.argmax(pChoice, axis=1)
+        accuracy = (testY.shape[0] - np.logical_xor(choiceHard, testY).sum()) / testY.shape[0] * 100
+        
+        return choiceHard, accuracy
+
+    
 
     # OLD SPLIT DATA FUNCTION
     # def split_data(self, x, y, sessInd, folds=10, random_state=1):

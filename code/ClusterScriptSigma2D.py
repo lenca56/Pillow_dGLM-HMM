@@ -34,7 +34,7 @@ K = df.loc[idx,'K']
 fold = df.loc[idx,'fold']
 
 # setting hyperparameters
-sigmaList =  [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10]
+sigmaList =  [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10]
 L2penaltyW = 1
 priorDirP = None
 maxiter = 300

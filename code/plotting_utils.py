@@ -90,7 +90,7 @@ def plotting_state_occupancy(z, axes, title='', save_fig=False):
     if(save_fig==True):
         plt.savefig(f'../figures/State_Occupancy-{title}.png', bbox_inches='tight', dpi=400)
 
-def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
+def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', alpha=1):
     '''  
     function that plots test LL as a function of sigma 
 
@@ -104,7 +104,7 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o'):
     sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
     sigmaListOdd = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
     # sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
-    axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label)
+    axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label, alpha=alpha)
     if(sigmaList[0]==0):
         axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color)
         axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,4)}' for sigma in sigmaListOdd])
@@ -225,7 +225,7 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linew
             axes[k].legend()
         axes[K-1].set_xlabel('session')
 
-def plotting_weights_per_feature(w, sessInd, axes, yLim=[-3,3], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
+def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
     
     # permute weights 
     if (sortedStateInd is not None):
@@ -239,14 +239,17 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[-3,3], colors=colorsSta
         axes[d].axhline(0, alpha=0.3, color='black',linestyle='-')
         for k in range(0, K):
             axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=f'state {k+1}', alpha=0.8, linestyle=linestyle)
-        axes[d].set_ylim(yLim[d])
+        if (d==1): #stimulus columns
+            axes[d].set_ylim(yLim[1])
+        else: #stimulus columns
+            axes[d].set_ylim(yLim[0])
         axes[d].set_ylabel("weights")
         axes[d].set_title(f'{labels[d]}')
         if (legend==True):
-            axes[d].legend(loc = 'lower right')
+            axes[d].legend(loc = 'center left', bbox_to_anchor=(1.04, 0.5))
     axes[D-1].set_xlabel('session')
 
-def plot_transition_matrix(P, sortedStateInd):
+def plot_transition_matrix(P, sortedStateInd=None):
     ''' 
     function that plots heatmap of transition matrix (assumed constant)
 
@@ -258,7 +261,8 @@ def plot_transition_matrix(P, sortedStateInd):
     Returns
     ----------
     '''
-    P = P[sortedStateInd,:][:,sortedStateInd]
+    if (sortedStateInd is not None):
+        P = P[sortedStateInd,:][:,sortedStateInd]
 
     K = P.shape[0]
     s = sns.heatmap(np.round(P,3),annot=True,cmap='BuPu', fmt='g')
@@ -266,7 +270,6 @@ def plot_transition_matrix(P, sortedStateInd):
     fig = s.get_figure()
 
 def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
-    stateColors = ['darkblue','green','orange']
     s = len(sessions)
     if (s>5):
         raise Exception("Cant have more than 5 example sessions to plot")
@@ -277,7 +280,7 @@ def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
         axes[-1].set_xlabel('trials')
         axes[i].set_ylabel('posterior latent')
         for k in range(0,K):
-            axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=stateColors[k], label=f'state {k+1}')
+            axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}')
         axes[i].legend()
 
 from datetime import date, datetime, timedelta

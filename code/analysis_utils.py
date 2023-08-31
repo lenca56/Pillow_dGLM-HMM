@@ -114,6 +114,7 @@ def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.
 
     allLl = np.zeros((inits, len(sigmaList), maxiter))
     allP = np.zeros((inits, len(sigmaList), K,K))
+    allpi = np.zeros((inits, len(sigmaList), K))
     allW = np.zeros((inits, len(sigmaList),N,K,D,C))
 
     oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
@@ -123,24 +124,26 @@ def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.
             print(indSigma)
             if (indSigma == 0): 
                 if(sigmaList[0] == 0):
-                    initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                    allP[init, indSigma],  allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=300, tol=1e-4) # sigma does not matter here
+                    initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+                    allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=300, tol=1e-4) # sigma does not matter here
                 else:
-                    initP, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
+                    initP, initpi, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
             else:
                 initP = allP[init, indSigma-1] 
                 initW = allW[init, indSigma-1] 
+                initpi = allpi[init, indSigma-1] 
             
             if(sigmaList[indSigma] != 0):
                 # fit on whole dataset
-                allP[init, indSigma],  allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, pi0=None, maxIter=maxiter, tol=1e-3) # fit the model
+                allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, pi0=None, maxIter=maxiter, tol=1e-3) # fit the model
                 
     if(save==True):
         np.save(f'../data/Ll_N={N}_{K}_state_{modelType}', allLl)
         np.save(f'../data/P_N={N}_{K}_state_{modelType}', allP)
+        np.save(f'../data/pi_N={N}_{K}_state_{modelType}', allpi)
         np.save(f'../data/W_N={N}_{K}_state_{modelType}', allW)
 
-    return allLl, allP, allW
+    return allLl, allP, allpi, allW
 
 def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1]):
     ''' 
@@ -194,6 +197,7 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
     trainLl = [np.zeros((len(sigmaList), maxiter)) for i in range(0, fitFolds)] 
     testLl = [np.zeros((len(sigmaList))) for i in range(0, fitFolds)]
     allP = [np.zeros((len(sigmaList), K, K)) for i in range(0, fitFolds)] 
+    allpi = [np.zeros((len(sigmaList), K)) for i in range(0, fitFolds)] 
     allW = [] 
 
     for fold in range(0, fitFolds):
@@ -212,19 +216,20 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
                         oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
                         allP[fold][indSigma] = np.copy(glmhmmP) # K x K transition matrix
                         allW[fold][indSigma] = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
+                        allpi[fold][indSigma] = np.ones((K))/K
                     else:
-                        initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                        allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
-                
+                        initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+                        allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
                 else:
                     raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
             else:
                 # initializing from previous fit
                 initP = allP[fold][indSigma-1] 
                 initW = allW[fold][indSigma-1] 
+                initpi = allpi[fold][indSigma-1] 
             
                 # fitting dGLM-HMM
-                allP[fold][indSigma],  allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
         
             # evaluate on the test set
             sess = len(trainSessInd[fold]) - 1 # number sessions
@@ -236,7 +241,7 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
     
         testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
 
-    return trainLl, testLl, allP, allW, trainSessInd, testSessInd
+    return trainLl, testLl, allP, allpi, allW, trainSessInd, testSessInd
 
 def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd, K, sigmaList=[0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1], stimCol=None):
     ''' 
@@ -294,6 +299,7 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
     trainLl = np.zeros((len(sigmaList), len(sigmaList), maxiter)) 
     testLl = np.zeros((len(sigmaList), len(sigmaList))) 
     allP = np.zeros((len(sigmaList), len(sigmaList), K, K)) 
+    allpi = np.zeros((len(sigmaList), len(sigmaList), K)) 
     allW = np.zeros((len(sigmaList), len(sigmaList), N,K,D,C)) 
 
     if (sigmaList[0] == 0):
@@ -306,10 +312,11 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
     if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
         oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
         initGlmHmmP = np.copy(glmhmmP) # K x K transition matrix
+        initGlmHmmpi = np.ones((K))/K
         initGlmHmmW = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
     else:
-        initP0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-        initGlmHmmP, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY,  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
+        initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+        initGlmHmmP, initGlmHmmpi, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY, initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
             
     for indSigma1 in range(0,len(sigmaList)):
         for indSigma2 in range(0,len(sigmaList)): 
@@ -322,33 +329,35 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
 
             if (indSigma1 == 0 and indSigma2 == 0): 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2],  allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmpi, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
             elif (indSigma2 == 0):
                 # initializing from previous fit on same indSigma2
                 initP = allP[indSigma1-1, indSigma2] 
-                initW = allW[indSigma1-1, indSigma2] 
+                initpi = allpi[indSigma1-1, indSigma2] 
+                initW = allW[indSigma1-1, indSigma2]
                 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2],  allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
             else:
                 # initializing from previous fit on same indSigma1
                 initP = allP[indSigma1, indSigma2-1] 
+                initpi = allpi[indSigma1, indSigma2-1]
                 initW = allW[indSigma1, indSigma2-1] 
                 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2],  allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
 
             # evaluate on the test set
             sess = len(trainSessInd) - 1 # number sessions
             testPhi = dGLM_HMM.observation_probability(testX, reshapeWeights(allW[indSigma1, indSigma2], trainSessInd, testSessInd))
             for s in range(0, sess):
                 # evaluate on test data for each session separately
-                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]],allP[indSigma1, indSigma2],testPhi[testSessInd[s]:testSessInd[s+1]])
+                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]], allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], testPhi[testSessInd[s]:testSessInd[s+1]])
                 testLl[indSigma1, indSigma2] += temp
         
     testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test dataset
 
-    return trainLl, testLl, allP, allW, trainSessInd, testSessInd
+    return trainLl, testLl, allP,  allpi, allW, trainSessInd, testSessInd
 
 
 def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=None, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], modelType='drift', save=False):
@@ -358,6 +367,7 @@ def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=N
     testX = np.load(f'../data/{K}_state_{modelType}_testX.npy')
     testY = np.load(f'../data/{K}_state_{modelType}_testY.npy')
     allP = np.load(f'../data/P_N={N}_{K}_state_{modelType}.npy')
+    allpi = np.load(f'../data/pi_N={N}_{K}_state_{modelType}.npy')
     allW = np.load(f'../data/W_N={N}_{K}_state_{modelType}.npy')
     sess = 10
     inits = allW.shape[0]
@@ -377,7 +387,7 @@ def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=N
             for s in range(0, sess):
                 # evaluate on test data for each session separately
                 testPhi = dGLM_HMM.observation_probability(testX, reshapeWeights(allW[init, indSigma], trainSessInd, testSessInd))
-                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]],allP[init, indSigma],testPhi[testSessInd[s]:testSessInd[s+1]])
+                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]], allP[init, indSigma], allpi[init, indSigma], testPhi[testSessInd[s]:testSessInd[s+1]])
                 testLl[init, indSigma] += temp
     
     testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test
@@ -475,7 +485,6 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
     # keeping first 40 sessions
     dateToKeep = np.unique(data['date'])[0:sessStop]
     dataTemp = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))])
-
 
     # design and out matrix
     x = np.zeros((dataTemp.shape[0], D)) 

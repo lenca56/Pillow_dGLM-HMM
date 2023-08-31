@@ -85,7 +85,7 @@ class dGLM_HMM1():
         return gamma * ( softplus_deriv(-w @ x) - y) * x
 
 
-    def simulate_data(self, trueW, trueP, sessInd, save=False, title='sim', pi0=0.5):
+    def simulate_data(self, trueW, trueP, truepi, sessInd, save=False, title='sim'):
         '''
         function that simulates X and Y data from true weights and true transition matrix
 
@@ -136,15 +136,13 @@ class dGLM_HMM1():
 
         if (self.k==1):
             z[:] = 0
-        elif (self.k ==2):
+        else:
             # latent variables z 
             for t in range(0, self.n):
                 if (t in sessInd[:-1]): # beginning of session has a new draw for latent
-                    z[t] = np.random.binomial(n=1,p=1-pi0)
+                    z[t] = np.random.multinomial(n=1,p=truepi)[0]
                 else:
-                    z[t] = np.random.binomial(n=1, p=trueP[z[t-1],1])
-        elif (self.k >=3):
-            raise Exception("simulate data does not support k>=3")
+                    z[t] = np.random.multinomial(n=1, p=trueP[z[t-1],:])[0]
         
         # observation probabilities
         phi = self.observation_probability(x, trueW)
@@ -162,7 +160,7 @@ class dGLM_HMM1():
         return x, y, z
 
     # already checked with Iris' function that it is correct
-    def forward_pass(self, y, P, phi, pi0=None):
+    def forward_pass(self, y, P, pi, phi):
         '''
         Calculates alpha scaled as part of the forward-backward algorithm in E-step 
        
@@ -174,6 +172,8 @@ class dGLM_HMM1():
             matrix of transition probabilities
         phi : T x k x  c numpy array
             matrix of observation probabilities
+        pi: k x 1 numpy vector
+            p(z_1) for z_1 first latent of every session
         pi0: k x 1 numpy vector
             distribution of first state before it has sesn any data 
         Returns
@@ -196,14 +196,11 @@ class dGLM_HMM1():
         for t in range(0,T):
             lt[t,:] = phi[t,:,y[t]] # likelihood p(y_t | z_t)
             if (t==0): # time point 0
-                # prior of z_0 before any data 
-                if (pi0==None):
-                    alpha_prior[0,:] = np.ones((1,self.k))/self.k # uniform prior
-                else:
-                    alpha_prior[0,:] = pi0
+                # prior of z_1 before any data 
+                alpha_prior[0,:] = pi #np.ones((1,self.k))/self.k = uniform prior
             else:
                 alpha_prior[t,:] = (alpha[t-1,:].T @ P) # conditional p(z_t | y_1:t-1)
-            pxz = np.multiply(lt[t],alpha_prior[t,:]) # joint P(y_1:t, z_t)
+            pxz = np.multiply(lt[t], alpha_prior[t,:]) # joint P(y_1:t, z_t)
             ct[t] = np.sum(pxz) # conditional p(y_t | y_1:t-1)
             alpha[t,:] = pxz/ct[t] # conditional p(z_t | y_1:t)
         
@@ -212,7 +209,7 @@ class dGLM_HMM1():
         return alpha, ct, ll
     
     # already checked with Iris' function that it is correct
-    def backward_pass(self, y, P, phi, ct, pi0=None):
+    def backward_pass(self, y, P, phi, ct):
         '''
         Calculates beta scaled as part of the forward-backward algorithm in E-step 
 
@@ -292,7 +289,7 @@ class dGLM_HMM1():
             
         return gamma, zeta
 
-    def get_states_in_time(self, x, y, w, p, sessInd=None):
+    def get_states_in_time(self, x, y, w, p, pi, sessInd=None):
         ''' 
         function that gets the distribution of states across trials/time-points after assigning the states with respective maximum probabilities
         '''
@@ -311,7 +308,7 @@ class dGLM_HMM1():
 
         for s in range(0,sess):
         # E step - forward and backward passes given theta_old (= previous w and p)
-            alphaSess, ctSess, _ = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:])
+            alphaSess, ctSess, _ = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, pi, phi[sessInd[s]:sessInd[s+1],:,:])
             betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
             gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
             
@@ -351,6 +348,7 @@ class dGLM_HMM1():
         # initialize weight and transitions
         p = np.empty((self.k, self.k))
         w = np.zeros((T, self.k, self.d, self.c))
+        pi = np.ones((1,self.k))/self.k 
 
         # generating transition matrix 
         if (transitionDistribution[0] == 'dirichlet'):
@@ -376,7 +374,7 @@ class dGLM_HMM1():
         else:
             raise Exception("Weight distribution can only be uniform or normal")
 
-        return p, w 
+        return p, pi, w 
     
     def all_states_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
         '''
@@ -580,7 +578,7 @@ class dGLM_HMM1():
 
         return -grad
     
-    def fit(self, x, y,  initP, initW, sigma, sessInd=None, pi0=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1]):
+    def fit(self, x, y,  initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1]):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -631,9 +629,12 @@ class dGLM_HMM1():
         # initialize weights and transition matrix
         w = np.copy(initW)
         p = np.copy(initP)
+        pi = np.copy(initpi)
 
         # initialize zeta = joint posterior of successive latents 
         zeta = np.zeros((T-1, self.k, self.k)).astype(float) 
+        # initialize gamma postierior of latents
+        gamma = np.zeros((T, self.k))
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
 
@@ -661,12 +662,13 @@ class dGLM_HMM1():
             for s in range(0,sess):
                 
                 # E step - forward and backward passes given theta_old (= previous w and p)
-                alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)
-                betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, pi0=pi0)
+                alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, pi, phi[sessInd[s]:sessInd[s+1],:,:])
+                betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
                 gammaSess, zetaSess = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
                 
                 # merging zeta for all sessions 
                 zeta[sessInd[s]:sessInd[s+1]-1,:,:] = zetaSess[:,:,:] 
+                gamma[sessInd[s]:sessInd[s+1]] = gammaSess
                 ll[iter] += llSess
                 
                 # M step for weights - weights are updated for each session individually (as neighboring session weights have to be fixed)
@@ -695,8 +697,6 @@ class dGLM_HMM1():
                 # optimized = minimize(value_and_grad(opt_log), w_flat, jac = "True")
                 # optimizedW = np.reshape(optimized.x,(self.k, self.d)) # reshape optimized weights
                 # w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
-                     
-                
                 
                 # optimizedW = np.zeros((self.k,self.d,self.c))
                 # # prevW = w[sessInd[s-1]] if s!=0 else None # k x d x c matrix of previous session weights
@@ -710,12 +710,14 @@ class dGLM_HMM1():
                 #     optimized = minimize(value_and_grad(opt_log), w_flat) # , jac = "True", method = "L-BFGS-B")
                 #     optimizedW[k,:,0] = np.reshape(optimized.x,(1, self.d)) # reshape optimized weights
                 # w[sessInd[s]:sessInd[s+1],:,:,0] = optimizedW # updating weight w for current session
-            
             #plotting_weights(w, sessInd, f'iter {iter} optimized')
             # print(w[sessInd[:-1]])
 
             # M-step for transition matrix p - for all sessions together
             for i in range(0, self.k):
+                # initial distribution of latents
+                pi = gamma[sessInd,:].sum(axis=0) 
+                pi = pi / pi.sum() # normalize
                 for j in range(0, self.k):
                     p[i,j] = (zeta[:,i,j].sum() + priorP[i,j]) / (zeta[:,i,:].sum() + priorP[i,:].sum()) # closed form update
         
@@ -731,13 +733,13 @@ class dGLM_HMM1():
         #     w = w[:,sortedStateInd,:,:]
         #     p = p[sortedStateInd,:][:,sortedStateInd]
 
-        return p, w, ll
+        return p, pi, w, ll
 
-    def get_posterior_latent(self, p, w, x, y, sessInd, pi0):
+    def get_posterior_latent(self, p, pi, w, x, y, sessInd, sortedStateInd=None):
+        if (sortedStateInd is not None):
         # permute states
-        sortedStateInd = get_states_order(w, sessInd)
-        w = w[:,sortedStateInd,:,:]
-        p = p[sortedStateInd,:][:,sortedStateInd]
+            w = w[:,sortedStateInd,:,:]
+            p = p[sortedStateInd,:][:,sortedStateInd]
 
         T = x.shape[0]
 
@@ -752,20 +754,21 @@ class dGLM_HMM1():
 
         for s in range(0,sess):
             # E step - forward and backward passes given theta_old (= previous w and p)
-            alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], pi0=pi0)
-            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, pi0=pi0)
+            alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, pi, phi[sessInd[s]:sessInd[s+1],:,:])
+            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
             gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
-
+            
+            # concatenating across sessions
             gamma[sessInd[s]:sessInd[s+1],:] = gammaSess[:,:] 
         
         return gamma
     
-    def get_test_accuracy(self, testX, testY, testSessInd, p, w, pi0=None):
+    def get_test_accuracy(self, testX, testY, testSessInd, p, pi, w):
         T = testX.shape[0]
         D = testX.shape[1]
         C = 2
 
-        gamma = self.get_posterior_latent(p, w, testX, testY, testSessInd, pi0=pi0)
+        gamma = self.get_posterior_latent(p, pi, w, testX, testY, testSessInd)
         phi = self.observation_probability(testX, w)
 
         pChoice = np.zeros((gamma.shape[0],C))
@@ -776,7 +779,6 @@ class dGLM_HMM1():
         
         return choiceHard, accuracy
 
-    
 
     # OLD SPLIT DATA FUNCTION
     # def split_data(self, x, y, sessInd, folds=10, random_state=1):

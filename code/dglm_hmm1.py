@@ -514,7 +514,7 @@ class dGLM_HMM1():
 
         return -grad
     
-    def fit(self, x, y,  initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1]):
+    def fit(self, x, y,  initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1], fit_init_states=True):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -571,6 +571,9 @@ class dGLM_HMM1():
         gamma = np.zeros((T, self.k)).astype(float)
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
+
+        if (fit_init_states==True and len(sessInd)-1<50):
+            raise Exception("Should not fit init states when less than 50 sessions due to high uncertainty")
 
         # dealing with case sigma=0
         if (np.sum(sigma) == 0):
@@ -631,13 +634,14 @@ class dGLM_HMM1():
                 for j in range(0, self.k):
                     p[i,j] = (zeta[:,i,j].sum() + priorP[i,j]) / (zeta[:,i,:].sum() + priorP[i,:].sum()) # closed form update
             
-            # # M-step for initial distribution of latents
-            # if (np.sum(sigma) == 0):
-            #     print(gamma[oldSessInd,:])
-            #     pi = gamma[oldSessInd,:].sum(axis=0) 
-            # else:
-            #     # initial distribution of latents
-            #     pi = gamma[sessInd[:-1],:].sum(axis=0) 
+            if (fit_init_states==True):
+                # M-step for initial distribution of latents
+                if (np.sum(sigma) == 0):
+                    pi = gamma[oldSessInd,:].sum(axis=0) 
+                else:
+                    # initial distribution of latents
+                    pi = gamma[sessInd[:-1],:].sum(axis=0) 
+                pi = pi / pi.sum() # normalize
         
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):

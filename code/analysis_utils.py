@@ -125,7 +125,7 @@ def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.
             if (indSigma == 0): 
                 if(sigmaList[0] == 0):
                     initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                    allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=300, tol=1e-4) # sigma does not matter here
+                    allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=300, tol=1e-4) # sigma does not matter here
                 else:
                     initP, initpi, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
             else:
@@ -135,7 +135,7 @@ def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.
             
             if(sigmaList[indSigma] != 0):
                 # fit on whole dataset
-                allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, pi0=None, maxIter=maxiter, tol=1e-3) # fit the model
+                allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-3) # fit the model
                 
     if(save==True):
         np.save(f'../data/Ll_N={N}_{K}_state_{modelType}', allLl)
@@ -219,7 +219,7 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
                         allpi[fold][indSigma] = np.ones((K))/K
                     else:
                         initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                        allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
+                        allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
                 else:
                     raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
             else:
@@ -316,7 +316,7 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
         initGlmHmmW = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
     else:
         initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-        initGlmHmmP, initGlmHmmpi, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY, initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
+        initGlmHmmP, initGlmHmmpi, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY, initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
             
     for indSigma1 in range(0,len(sigmaList)):
         for indSigma2 in range(0,len(sigmaList)): 
@@ -329,7 +329,7 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
 
             if (indSigma1 == 0 and indSigma2 == 0): 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmpi, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmpi, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
             elif (indSigma2 == 0):
                 # initializing from previous fit on same indSigma2
                 initP = allP[indSigma1-1, indSigma2] 
@@ -337,7 +337,7 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
                 initW = allW[indSigma1-1, indSigma2]
                 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
             else:
                 # initializing from previous fit on same indSigma1
                 initP = allP[indSigma1, indSigma2-1] 
@@ -345,7 +345,7 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
                 initW = allW[indSigma1, indSigma2-1] 
                 
                 # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
 
             # evaluate on the test set
             sess = len(trainSessInd) - 1 # number sessions
@@ -414,9 +414,9 @@ def accuracy(x,y,z,s):
     for sess in range(0,s):
         state0[sess] = trials - z[sess*trials:(sess+1)*trials].sum()
         for t in range(0,trials):
-            if (x[sess*trials+t,1]>0 and y[sess*trials+t,1]==1):
+            if (x[sess*trials+t,1]>0 and y[sess*trials+t]==1):
                 perf[sess]+=1
-            elif (x[sess*trials+t,1]<0 and y[sess*trials+t,0]==1):
+            elif (x[sess*trials+t,1]<0 and y[sess*trials+t]==0):
                 perf[sess]+=1
             else:
                 ind.append(sess*trials+t)

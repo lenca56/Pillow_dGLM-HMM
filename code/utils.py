@@ -96,7 +96,7 @@ def reshapeP_M1_to_M2(P, N):
     '''
     return np.repeat(P[np.newaxis,...], N, axis=0)
 
-def get_states_order(w, sessInd):
+def get_states_order(w, sessInd, stimCol=[1]):
     ''' 
     returning states in decreasing order according to absolute value of sensory weights across consecutive sessions
 
@@ -111,10 +111,8 @@ def get_states_order(w, sessInd):
     driftState = np.zeros((k,))
     for s in range(0,sess):
         for i in range(0,k):
-            if (D==5):
-                driftState[i]+= abs(w[sessInd[s],i,1,1]) + abs(w[sessInd[s],i,2,1]) # not sure about the scale
-            elif (D==4):
-                driftState[i]+= abs(w[sessInd[s],i,1,1]) 
+            for x in stimCol:
+                driftState[i]+= abs(w[sessInd[s],i,x,1]) 
     sortedInd = list(np.argsort(driftState))
     sortedInd.reverse() # decreasing order
     

@@ -677,11 +677,11 @@ class dGLM_HMM2():
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
         
-        # permuting states according to variability across sessions
-        if (sess > 1):
-            sortedStateInd = permute_states(w, sessInd)
-            w = w[:,sortedStateInd,:,:]
-            p = p[:,sortedStateInd,:][:,:,sortedStateInd]
+        # # permuting states according to variability across sessions
+        # if (sess > 1):
+        #     sortedStateInd = permute_states(w, sessInd)
+        #     w = w[:,sortedStateInd,:,:]
+        #     p = p[:,sortedStateInd,:][:,:,sortedStateInd]
 
         return p, w, ll
     

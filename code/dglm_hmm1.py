@@ -59,7 +59,7 @@ class dGLM_HMM1():
         else:
             raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
 
-        logphi = np.empty((Ncurrent, K, self.c)) 
+        logphi = np.zeros((Ncurrent, K, self.c)) 
         for k in range(0, K):
             # be careful with soft plus function in relation to obs prob!! as the two cases for c are different
             logphi[:,k,1] = - softplus(np.sum(w[:,k,:,1]*x,axis=1))
@@ -121,9 +121,9 @@ class dGLM_HMM1():
         if (trueP.shape != (self.k, self.k)):
             raise Exception(f'Transition matrix needs to have shape ({self.k}, {self.k})')
         
-        x = np.empty((self.n, self.d))
+        x = np.zeros((self.n, self.d))
         y = np.zeros((self.n, self.c)).astype(int)
-        z = np.empty((self.n,),dtype=int)
+        z = np.zeros((self.n,),dtype=int)
 
         # input data x
         x[:,0] = 1 # bias term
@@ -132,7 +132,7 @@ class dGLM_HMM1():
         x[:,1] = x[:,1] - x[:,1].mean()
         x[:,1] = x[:,1] / x[:,1].std()
 
-        # TRY ormal distribution for x[:,1]
+        # TRY normal distribution for x[:,1]
 
         if (self.k==1):
             z[:] = 0
@@ -140,15 +140,15 @@ class dGLM_HMM1():
             # latent variables z 
             for t in range(0, self.n):
                 if (t in sessInd[:-1]): # beginning of session has a new draw for latent
-                    z[t] = np.random.multinomial(n=1,pvals=truepi)[0]
+                    z[t] = np.random.choice(range(0, self.k), p=truepi)
                 else:
-                    z[t] = np.random.multinomial(n=1, pvals=trueP[z[t-1],:])[0]
+                    z[t] = np.random.choice(range(0, self.k), p=trueP[z[t-1],:])
         
         # observation probabilities
         phi = self.observation_probability(x, trueW)
 
         for t in range(0, self.n):
-            y[t,int(np.random.binomial(n=1,p=phi[t,z[t],1]))]=1
+            y[t,int(np.random.binomial(n=1, p=phi[t,z[t],1]))]=1
         
         y = reshapeObs(y) # reshaping from n x c to n x 1
 
@@ -188,20 +188,19 @@ class dGLM_HMM1():
         '''
         T = y.shape[0]
         
-        alpha = np.zeros((T, self.k)) # forward probabilities p(z_t | y_1:t)
-        alpha_prior = np.zeros((T, self.k)) # prior probabilities p(z_t | y_1:t-1)
-        lt = np.zeros((T, self.k)) # likelihood of data p(y_t|z_t)
-        ct = np.zeros(T) # forward marginal likelihoods p(y_t | y_1:t-1)
+        alpha = np.zeros((T, self.k)).astype(float) # forward probabilities p(z_t | y_1:t)
+        alpha_prior = np.zeros((T, self.k)).astype(float) # prior probabilities p(z_t | y_1:t-1)
+        ct = np.zeros((T)).astype(float) # forward marginal likelihoods p(y_t | y_1:t-1)
 
         # forward pass calculations
         for t in range(0,T):
-            lt[t,:] = phi[t,:,y[t]] # likelihood p(y_t | z_t)
             if (t in oldSessInd): # time point 0
                 # prior of z_1 before any data 
-                alpha_prior[0,:] = pi #np.ones((1,self.k))/self.k = uniform prior
+                alpha_prior[t,:] = pi #np.ones((1,self.k))/self.k = uniform prior
             else:
                 alpha_prior[t,:] = (alpha[t-1,:].T @ P) # conditional p(z_t | y_1:t-1)
-            pxz = np.multiply(lt[t], alpha_prior[t,:]) # joint P(y_1:t, z_t)
+
+            pxz = np.multiply(phi[t,:,y[t]], alpha_prior[t,:]) # joint P(y_1:t, z_t)
             ct[t] = np.sum(pxz) # conditional p(y_t | y_1:t-1)
             alpha[t,:] = pxz/ct[t] # conditional p(z_t | y_1:t)
         
@@ -233,8 +232,7 @@ class dGLM_HMM1():
 
         T = y.shape[0]
         
-        beta = np.zeros((T, self.k)) # backward conditional probabilities p(y_t+1:T | z_t) / p(y_t+1:T | y_1:t)
-        lt = np.zeros((T, self.k)) # likelihood of data p(y_t|z_t)
+        beta = np.zeros((T, self.k)).astype(float) # backward conditional probabilities p(y_t+1:T | z_t) / p(y_t+1:T | y_1:t)
 
         # last time point
         beta[-1] = 1 # p(z_T=1)
@@ -244,8 +242,7 @@ class dGLM_HMM1():
             if (t+1 in oldSessInd):
                 beta[t,:] = 1 # last time point of a session
             else:
-                lt[t+1,:] = phi[t+1,:,y[t+1]] 
-                beta[t,:] = P @ (np.multiply(beta[t+1,:],lt[t+1,:]))
+                beta[t,:] = P @ (np.multiply(beta[t+1,:],phi[t+1,:,y[t+1]]))
                 beta[t,:] = beta[t,:] / ct[t+1] # scaling factor
         
         return beta
@@ -279,10 +276,11 @@ class dGLM_HMM1():
         '''
         
         T = ct.shape[0]
-        gamma = np.empty((T, self.k)).astype(float) # marginal posterior of latents
-        zeta = np.empty((T-1, self.k, self.k)).astype(float) # joint posterior of successive latents
+        gamma = np.zeros((T, self.k)).astype(float) # marginal posterior of latents
+        zeta = np.zeros((T-1, self.k, self.k)).astype(float) # joint posterior of successive latents
 
-        gamma = np.multiply(alpha, beta) # gamma(z_t) = alpha(z_t) * beta(z_t)
+        # gamma(z_t) = alpha(z_t) * beta(z_t)
+        gamma = np.multiply(alpha, beta) 
 
         # zeta(z_t, z_t+1) =  alpha(z_t) * beta(z_t+1) * p (z_t+1 | z_t) * p(y_t+1 | z_t+1) / c_t+1
         for t in range(0,T-1):
@@ -302,14 +300,14 @@ class dGLM_HMM1():
 
         if sessInd is None:
             sessInd = [0, T]
-            sess = 1 # equivalent to saying the entire data set has one session
+            sess = 1 # entire data set has one session
         else:
             sess = len(sessInd)-1 # total number of sessions 
 
         # calculate observation probabilities given theta_old
             phi = self.observation_probability(x, w)
         
-        zStates = np.empty((T)).astype(int)
+        zStates = np.zeros((T)).astype(int)
 
         for s in range(0,sess):
         # E step - forward and backward passes given theta_old (= previous w and p)
@@ -318,7 +316,7 @@ class dGLM_HMM1():
             gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
             
             # assigning max probabiity state to trial
-            zStates[sessInd[s]:sessInd[s+1]] = np.argmax(gammaSess,axis=1)
+            zStates[sessInd[s]:sessInd[s+1]] = np.argmax(gammaSess, axis=1)
         
         return zStates
     
@@ -351,9 +349,9 @@ class dGLM_HMM1():
         sess = len(sessInd)-1 # number of total sessions
 
         # initialize weight and transitions
-        p = np.empty((self.k, self.k))
+        p = np.zeros((self.k, self.k))
         w = np.zeros((T, self.k, self.d, self.c))
-        pi = np.ones((1,self.k))/self.k 
+        pi = np.ones((1, self.k))/self.k 
 
         # generating transition matrix 
         if (transitionDistribution[0] == 'dirichlet'):
@@ -433,10 +431,11 @@ class dGLM_HMM1():
         for t in range(0, T):
             lf += gamma[t]*logPhi[t,0,y[t]]
 
-        # inverse of covariance matrix
-        invSigma = np.square(1/sigma[:])
-        det = np.prod(invSigma)
-        invCov = np.diag(invSigma)
+        if (sigma.sum() != 0): # sigma does not have any 0s
+            # inverse of covariance matrix
+            invSigma = np.square(1/sigma[:])
+            det = np.prod(invSigma)
+            invCov = np.diag(invSigma)
 
         if (prevW is not None):
             # logpdf of multivariate normal (ignoring pi constant)
@@ -448,7 +447,7 @@ class dGLM_HMM1():
         # penalty term for size of weights - NOT NECESSARY FOR NOW
         lf+= L2penaltyW * -1/2 * currentW[:].T @ currentW[:]
 
-        return -lf #, -grad
+        return -lf 
 
     def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, L2penaltyW=1):
         ''' 
@@ -499,8 +498,9 @@ class dGLM_HMM1():
         for t in range(0, T):
             grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
 
-        # inverse of covariance matrix
-        invSigma = np.square(1/sigma[:])
+        if (sigma.sum() != 0): # sigma does not have any 0s
+            # inverse of covariance matrix
+            invSigma = np.square(1/sigma[:])
 
         if (prevW is not None): # previous session
             # gradient of logpdf of multivariate normal (ignoring pi constant)
@@ -559,9 +559,6 @@ class dGLM_HMM1():
 
         if sessInd is None:
             sessInd = [0, T]
-            sess = 1 # equivalent to saying the entire data set has one session
-        else:
-            sess = len(sessInd)-1 # total number of sessions 
 
         # initialize weights and transition matrix
         w = np.copy(initW)
@@ -571,7 +568,7 @@ class dGLM_HMM1():
         # initialize zeta = joint posterior of successive latents 
         zeta = np.zeros((T-1, self.k, self.k)).astype(float) 
         # initialize gamma postierior of latents
-        gamma = np.zeros((T, self.k))
+        gamma = np.zeros((T, self.k)).astype(float)
         # initialize marginal log likelihood p(y)
         ll = np.zeros((maxIter)).astype(float) 
 
@@ -586,6 +583,8 @@ class dGLM_HMM1():
                         raise Exception ('All or no elemenets of sigma are 0')
 
             oldSessInd = [0]
+        
+        sess = len(sessInd)-1
 
         # prior coefficients on transition matrix P
         priorP = np.zeros((self.k, self.k))
@@ -598,7 +597,6 @@ class dGLM_HMM1():
                         priorP[i, j] = priorDirP[1] # off diagonal term
 
         for iter in range(maxIter):
-
             # if (iter%100==0):
             #     print(iter)
             
@@ -623,31 +621,27 @@ class dGLM_HMM1():
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
                     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
                     #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
-                    if (np.sum(sigma) != 0):
-                        opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
-                        opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
-                        optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
-                        w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
+                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
+                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
+                    optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
+                    w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
 
             # M-step for transition matrix p - for all sessions together
             for i in range(0, self.k):
-                # initial distribution of latents
-                pi = gamma[sessInd[:-1],:].sum(axis=0) 
-                pi = pi / pi.sum() # normalize
                 for j in range(0, self.k):
                     p[i,j] = (zeta[:,i,j].sum() + priorP[i,j]) / (zeta[:,i,:].sum() + priorP[i,:].sum()) # closed form update
+            
+            # # M-step for initial distribution of latents
+            # if (np.sum(sigma) == 0):
+            #     print(gamma[oldSessInd,:])
+            #     pi = gamma[oldSessInd,:].sum(axis=0) 
+            # else:
+            #     # initial distribution of latents
+            #     pi = gamma[sessInd[:-1],:].sum(axis=0) 
         
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
-        
-        # PERMUTE STATES OUTSIDE FITTING PROCEDURE
-        
-        # # permuting states according to absolute value of sensory across sessions
-        # if (sess > 1):
-        #     sortedStateInd = permute_states(w, sessInd)
-        #     w = w[:,sortedStateInd,:,:]
-        #     p = p[sortedStateInd,:][:,sortedStateInd]
 
         return p, pi, w, ll
 

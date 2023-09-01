@@ -160,7 +160,7 @@ class dGLM_HMM1():
         return x, y, z
 
     # already checked with Iris' function that it is correct
-    def forward_pass(self, y, P, pi, phi, oldSessInd=[0]):
+    def forward_pass(self, y, present, P, pi, phi, startSessInd=[0]):
         '''
         Calculates alpha scaled as part of the forward-backward algorithm in E-step 
        
@@ -174,7 +174,9 @@ class dGLM_HMM1():
             p(z_1) for z_1 first latent of every session
         phi : T x k x  c numpy array
             matrix of observation probabilities
-        oldSessInd: list of int
+        present: T numpy vector
+            0 means missing data (p(y_t=missing)=1), 1 means present
+        startSessInd: list of int
             if [0], then it means it's a single sessioon, else it's start indices of multiple sessions
         
         Returns
@@ -194,22 +196,28 @@ class dGLM_HMM1():
 
         # forward pass calculations
         for t in range(0,T):
-            if (t in oldSessInd): # time point 0
+            if (t in startSessInd): # time point 0
                 # prior of z_1 before any data 
                 alpha_prior[t,:] = pi #np.ones((1,self.k))/self.k = uniform prior
             else:
                 alpha_prior[t,:] = (alpha[t-1,:].T @ P) # conditional p(z_t | y_1:t-1)
 
-            pxz = np.multiply(phi[t,:,y[t]], alpha_prior[t,:]) # joint P(y_1:t, z_t)
-            ct[t] = np.sum(pxz) # conditional p(y_t | y_1:t-1)
-            alpha[t,:] = pxz/ct[t] # conditional p(z_t | y_1:t)
+            if (present[t]==1): # NOT missing data
+                pxz = np.multiply(phi[t,:,y[t]], alpha_prior[t,:]) # joint P(y_1:t, z_t)
+                ct[t] = np.sum(pxz) # conditional p(y_t | y_1:t-1)
+                alpha[t,:] = pxz/ct[t] # conditional p(z_t | y_1:t)
+            elif (present[t]==0): # missing data -> all derivations come from p(y_t=missing)=1
+                ct[t] = 1 # so np.log(ct[t])=0 likelihood term not included
+                alpha[t,:] = alpha_prior[t,:]
+            else:
+                raise Exception('present vector can only have 0s and 1s')
         
-        ll = np.sum(np.log(ct)) # marginal log likelihood p(y_1:T) as sum of log conditionals p(y_t | y_1:t-1) 
+        ll = np.sum(np.log(ct)) # marginal log likelihood p(y_1:T) as sum of log conditionals p(y_t | y_1:t-1) for present data
         
         return alpha, ct, ll
     
     # already checked with Iris' function that it is correct
-    def backward_pass(self, y, P, phi, ct, oldSessInd=[0]):
+    def backward_pass(self, y, present, P, phi, ct, startSessInd=[0]):
         '''
         Calculates beta scaled as part of the forward-backward algorithm in E-step 
 
@@ -223,7 +231,9 @@ class dGLM_HMM1():
             matrix of observation probabilities
         ct : T x 1 numpy vector 
             veector of forward marginal likelihoods p(y_t | y_1:t-1), calculated at forward_pass
-            
+        present: T numpy vector
+            0 means missing data (p(y_t=missing)=1), 1 means present
+
         Returns
         -------
         beta: T x k numpy array 
@@ -239,15 +249,22 @@ class dGLM_HMM1():
 
         # backward pass calculations
         for t in np.arange(T-2,-1,-1):
-            if (t+1 in oldSessInd):
+            if (t+1 in startSessInd): # irresepective if missing or not
                 beta[t,:] = 1 # last time point of a session
             else:
-                beta[t,:] = P @ (np.multiply(beta[t+1,:],phi[t+1,:,y[t+1]]))
-                beta[t,:] = beta[t,:] / ct[t+1] # scaling factor
+                if (present[t] == 1): # NOT missing
+                    beta[t,:] = P @ (np.multiply(beta[t+1,:],phi[t+1,:,y[t+1]]))
+                    beta[t,:] = beta[t,:] / ct[t+1] # scaling factor
+                if (present[t] == 0): # missing data
+                    if (ct[t] != 1): # c[t] = 1 already from forward pass
+                        raise Exception("c[t] should already be 1 from forward pass -> present in backward might not be matching with forward")
+                    beta[t,:] = P @ beta[t+1,:]
+                else:
+                    raise Exception('present vector can only have 0s and 1s')
         
         return beta
     
-    def posteriorLatents(self, y, p, phi, alpha, beta, ct, oldSessInd=[0]):
+    def posteriorLatents(self, y, present, p, phi, alpha, beta, ct, startSessInd=[0]):
         ''' 
         calculates marginal posterior of latents gamma(z_t) = p(z_t | y_1:T)
         and joint posterior of successive latens zeta(z_t, z_t+1) = p(z_t, z_t+1 | y_1:T)
@@ -284,11 +301,19 @@ class dGLM_HMM1():
 
         # zeta(z_t, z_t+1) =  alpha(z_t) * beta(z_t+1) * p (z_t+1 | z_t) * p(y_t+1 | z_t+1) / c_t+1
         for t in range(0,T-1):
-            if (t+1 not in oldSessInd):
-                alpha_beta = alpha[t,:].reshape((self.k, 1)) @ beta[t+1,:].reshape((1, self.k))
-                zeta[t,:,:] = np.multiply(alpha_beta,p) 
-                zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # Iris has index t at phi instead
-                zeta[t,:,:] = zeta[t,:,:] / ct[t+1]
+            if (t+1 not in startSessInd): # to include these terms or not?
+                if (present[t+1] == 1): # NOT missing data
+                    alpha_beta = alpha[t,:].reshape((self.k, 1)) @ beta[t+1,:].reshape((1, self.k))
+                    zeta[t,:,:] = np.multiply(alpha_beta,p) 
+                    zeta[t,:,:] = np.multiply(zeta[t,:,:],phi[t+1,:,y[t+1]]) # Iris has index t at phi instead
+                    zeta[t,:,:] = zeta[t,:,:] / ct[t+1]
+                elif (present[t+1] == 0):
+                    if (ct[t+1] != 1): # c[t] = 1 already from forward pass
+                        raise Exception("c[t+1] should already be 1 from forward pass -> present  might not be matching with forward & backward")
+                    alpha_beta = alpha[t,:].reshape((self.k, 1)) @ beta[t+1,:].reshape((1, self.k))
+                    zeta[t,:,:] = np.multiply(alpha_beta,p)
+                else:
+                    raise Exception('present vector can only have 0s and 1s')
             
         return gamma, zeta
 
@@ -379,7 +404,7 @@ class dGLM_HMM1():
 
         return p, pi, w 
     
-    def value_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, L2penaltyW=1):
+    def value_weight_loss_function(self, currentW, x, y, present, gamma, prevW, nextW, sigma, L2penaltyW=1):
         ''' 
         weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -429,7 +454,8 @@ class dGLM_HMM1():
         # weighted log likelihood term of loss function
         lf = 0
         for t in range(0, T):
-            lf += gamma[t]*logPhi[t,0,y[t]]
+            if (present[t] == 1): # only for present data (not missing)
+                lf += gamma[t]*logPhi[t,0,y[t]]
 
         if (sigma.sum() != 0): # sigma does not have any 0s
             # inverse of covariance matrix
@@ -449,7 +475,7 @@ class dGLM_HMM1():
 
         return -lf 
 
-    def grad_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma, L2penaltyW=1):
+    def grad_weight_loss_function(self, currentW, x, y, present, gamma, prevW, nextW, sigma, L2penaltyW=1):
         ''' 
         weight loss function to optimize the weights in M-step of fitting function is calculated as negative of weighted log likelihood + prior terms 
         coming from drifting wrt neighboring sessions
@@ -496,7 +522,8 @@ class dGLM_HMM1():
         # weighted log likelihood term of loss function
         grad = np.zeros((self.d))
         for t in range(0, T):
-            grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
+            if (present[t] == 1): # only for present data (not missing)
+                grad += gamma[t] * (softplus_deriv(-x[t] @ currentW) - y[t]) * x[t]
 
         if (sigma.sum() != 0): # sigma does not have any 0s
             # inverse of covariance matrix
@@ -514,7 +541,7 @@ class dGLM_HMM1():
 
         return -grad
     
-    def fit(self, x, y,  initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1], fit_init_states=True):
+    def fit(self, x, y, present, initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1], fit_init_states=True):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -577,7 +604,7 @@ class dGLM_HMM1():
 
         # dealing with case sigma=0
         if (np.sum(sigma) == 0):
-            oldSessInd = sessInd[:-1]
+            startSessInd = sessInd[:-1]
             sessInd = [0, T]
         else:
             for k in range(0, self.k):
@@ -585,7 +612,7 @@ class dGLM_HMM1():
                     if (sigma[k,d] == 0):
                         raise Exception ('All or no elemenets of sigma are 0')
 
-            oldSessInd = [0]
+            startSessInd = [0]
         
         sess = len(sessInd)-1
 
@@ -610,9 +637,9 @@ class dGLM_HMM1():
             for s in range(0,sess):
                 
                 # E step - forward and backward passes given theta_old (= previous w and p)
-                alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, pi, phi[sessInd[s]:sessInd[s+1],:,:], oldSessInd)
-                betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, oldSessInd)
-                gammaSess, zetaSess = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess, oldSessInd)
+                alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], present, p, pi, phi[sessInd[s]:sessInd[s+1],:,:], startSessInd)
+                betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], present, p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess, startSessInd)
+                gammaSess, zetaSess = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], present, p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess, startSessInd)
                 
                 # merging zeta for all sessions 
                 zeta[sessInd[s]:sessInd[s+1]-1,:,:] = zetaSess[:,:,:] 
@@ -624,8 +651,8 @@ class dGLM_HMM1():
                     nextW = w[sessInd[s+1],k,:,:] if s!=sess-1 else None #  d x c matrix of next session weights
                     w_flat = np.ndarray.flatten(w[sessInd[s],k,:,1]) # flatten weights for optimization 
                     #optimized = minimize(self.value_weight_loss_function, w_flat, args=(x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:]))
-                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
-                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
+                    opt_val = lambda w: self.value_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], present, gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
+                    opt_grad = lambda w: self.grad_weight_loss_function(w, x[sessInd[s]:sessInd[s+1]], y[sessInd[s]:sessInd[s+1]], present, gammaSess[:,k], prevW, nextW, sigma[k,:], L2penaltyW=L2penaltyW)
                     optimized = minimize(opt_val, w_flat, jac=opt_grad, method='L-BFGS-B')
                     w[sessInd[s]:sessInd[s+1],k,:,1] = optimized.x # updating weight w for current session
 
@@ -637,7 +664,7 @@ class dGLM_HMM1():
             if (fit_init_states==True):
                 # M-step for initial distribution of latents
                 if (np.sum(sigma) == 0):
-                    pi = gamma[oldSessInd,:].sum(axis=0) 
+                    pi = gamma[startSessInd,:].sum(axis=0) 
                 else:
                     # initial distribution of latents
                     pi = gamma[sessInd[:-1],:].sum(axis=0) 
@@ -649,7 +676,7 @@ class dGLM_HMM1():
 
         return p, pi, w, ll
 
-    def get_posterior_latent(self, p, pi, w, x, y, sessInd, sortedStateInd=None):
+    def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):
         if (sortedStateInd is not None):
         # permute states
             w = w[:,sortedStateInd,:,:]
@@ -668,9 +695,9 @@ class dGLM_HMM1():
 
         for s in range(0,sess):
             # E step - forward and backward passes given theta_old (= previous w and p)
-            alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], p, pi, phi[sessInd[s]:sessInd[s+1],:,:])
-            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
-            gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
+            alphaSess, ctSess, llSess = self.forward_pass(y[sessInd[s]:sessInd[s+1]], present, p, pi, phi[sessInd[s]:sessInd[s+1],:,:])
+            betaSess = self.backward_pass(y[sessInd[s]:sessInd[s+1]], present, p, phi[sessInd[s]:sessInd[s+1],:,:], ctSess)
+            gammaSess, _ = self.posteriorLatents(y[sessInd[s]:sessInd[s+1]], present, p, phi[sessInd[s]:sessInd[s+1],:,:], alphaSess, betaSess, ctSess)
             
             # concatenating across sessions
             gamma[sessInd[s]:sessInd[s+1],:] = gammaSess[:,:] 
@@ -678,6 +705,10 @@ class dGLM_HMM1():
         return gamma
     
     def get_test_accuracy(self, testX, testY, testSessInd, p, pi, w):
+        ''' 
+        TO BE CHANGED LIKE JONATHAN SAID!!!
+        
+        '''
         T = testX.shape[0]
         D = testX.shape[1]
         C = 2

@@ -33,7 +33,7 @@ y = np.load(f'../data_IBL/Y_allAnimals_D={D}.npy')
 sessInd = np.load(f'../data_IBL/sessInd_allAnimals_D={D}.npy')
 
 # read from cluster array in order to get parallelizations
-idx = 0 #int(os.environ["SLURM_ARRAY_TASK_ID"])
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 init = df.loc[idx,'init']
 K = df.loc[idx,'K']
 sign = df.loc[idx, 'sign']

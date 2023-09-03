@@ -33,7 +33,7 @@ y = np.load(f'../data_IBL/Y_allAnimals_D={D}.npy')
 sessInd = np.load(f'../data_IBL/sessInd_allAnimals_D={D}.npy')
 
 # read from cluster array in order to get parallelizations
-idx = 0 #int(os.environ["SLURM_ARRAY_TASK_ID"])
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 init = df.loc[idx,'init']
 K = df.loc[idx,'K']
 sign = df.loc[idx, 'sign']
@@ -41,7 +41,7 @@ x[:,1] = sign * x[:,1] # if sign=1 then x = Right - Left, if sign=-1 then x = Le
 
 N = x.shape[0]
 C=2
-maxiter = 1
+maxiter = 250
 oneSessInd = [0,N]
 present = np.ones((N)).astype(int) # using all data
 dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)

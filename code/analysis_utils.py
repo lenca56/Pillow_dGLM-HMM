@@ -461,10 +461,10 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
     y = np.array(dataTemp['choice'])
     x[:,0] = 1 # bias
     if (D==2):
-        x[:,1] = dataTemp['contrastLeft'] - dataTemp['contrastRight'] # 'stimulus intensity'
+        x[:,1] = dataTemp['contrastRight'] - dataTemp['contrastLeft'] # 'stimulus intensity'
         x[:,1] = (x[:,1] - np.mean(x[:,1])) / np.std(x[:,1]) # z-scored
     elif (D==4):
-        x[:,1] = dataTemp['contrastLeft'] - dataTemp['contrastRight'] # 'stimulus intensity'
+        x[:,1] = dataTemp['contrastRight'] - dataTemp['contrastLeft'] # 'stimulus intensity'
         x[:,1] = (x[:,1] - np.mean(x[:,1])) / np.std(x[:,1]) # z-scored
         x[1:,2] = 2 * y[0:-1] - 1 # previous chioce as in Zoe's
         x[1:,3] = 2 * np.array(dataTemp['correctSide'])[0:-1] - 1 # previous reward as in Zoe's
@@ -499,92 +499,92 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=3):
 
 # # OLD SPLITTING DATA FUNCTION
 
-# def split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
-#     ''' 
-#     function no longer used starting with September 1st 2023
+def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
+    ''' 
+    function no longer used starting with September 1st 2023
     
-#     splitting data function for cross-validation
-#     currently does not balance trials for each session
+    splitting data function for cross-validation
+    currently does not balance trials for each session
 
-#     !Warning: each session must have at least (folds-1) * blocks  trials
+    !Warning: each session must have at least (folds-1) * blocks  trials
 
-#     Parameters
-#     ----------
-#     x: n x d numpy array
-#         full design matrix
-#     y : n x 1 numpy vector 
-#         full vector of observations with values 0,1,..,C-1
-#     sessInd: list of int
-#         indices of each session start, together with last session end + 1
-#     folds: int
-#         number of folds to split the data in (test has 1/folds points of whole dataset)
-#     blocks: int (default = 10)
-#         blocks of trials to keep together when splitting data (to keep some time dependencies)
-#     random_state: int (default=1)
-#         random seed to always get the same split if unchanged
+    Parameters
+    ----------
+    x: n x d numpy array
+        full design matrix
+    y : n x 1 numpy vector 
+        full vector of observations with values 0,1,..,C-1
+    sessInd: list of int
+        indices of each session start, together with last session end + 1
+    folds: int
+        number of folds to split the data in (test has 1/folds points of whole dataset)
+    blocks: int (default = 10)
+        blocks of trials to keep together when splitting data (to keep some time dependencies)
+    random_state: int (default=1)
+        random seed to always get the same split if unchanged
 
-#     Returns
-#     -------
-#     trainX: list of train_size[i] x d numpy arrays
-#         trainX[i] has input train data of i-th fold
-#     trainY: list of train_size[i] numpy arrays
-#         trainY[i] has output train data of i-th fold
-#     trainSessInd: list of lists
-#         trainSessInd[i] have session start indices for the i-th fold of the train data
-#     testX: // same for test
-#     '''
-#     N = x.shape[0]
-#     D = x.shape[1]
+    Returns
+    -------
+    trainX: list of train_size[i] x d numpy arrays
+        trainX[i] has input train data of i-th fold
+    trainY: list of train_size[i] numpy arrays
+        trainY[i] has output train data of i-th fold
+    trainSessInd: list of lists
+        trainSessInd[i] have session start indices for the i-th fold of the train data
+    testX: // same for test
+    '''
+    N = x.shape[0]
+    D = x.shape[1]
     
-#     # initializing session indices for each fold
-#     trainSessInd = [[0] for i in range(0, folds)]
-#     testSessInd = [[0] for i in range(0, folds)]
+    # initializing session indices for each fold
+    trainSessInd = [[0] for i in range(0, folds)]
+    testSessInd = [[0] for i in range(0, folds)]
 
-#     # split session indices into blocks and get session indices for train and test
-#     totalSess = len(sessInd) - 1
-#     for s in range(0, totalSess):
-#         ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
-#         kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
-#         for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
-#             train_indices = []
-#             test_indices = []
-#             for b in ySessBlock:
-#                 if (b in train_blocks):
-#                     train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-#                 elif(b in test_blocks):
-#                     test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-#                 else:
-#                     raise Exception("Something wrong with session block splitting")
+    # split session indices into blocks and get session indices for train and test
+    totalSess = len(sessInd) - 1
+    for s in range(0, totalSess):
+        ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
+        kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
+        for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
+            train_indices = []
+            test_indices = []
+            for b in ySessBlock:
+                if (b in train_blocks):
+                    train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+                elif(b in test_blocks):
+                    test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+                else:
+                    raise Exception("Something wrong with session block splitting")
 
-#             trainSessInd[i].append(len(train_indices)+ trainSessInd[i][-1])
-#             testSessInd[i].append(len(test_indices) + testSessInd[i][-1])
+            trainSessInd[i].append(len(train_indices)+ trainSessInd[i][-1])
+            testSessInd[i].append(len(test_indices) + testSessInd[i][-1])
 
-#     # initializing input and output arrays for each folds
-#     trainX = [np.zeros((trainSessInd[i][-1], D)) for i in range(0,folds)]
-#     trainY = [np.zeros((trainSessInd[i][-1])).astype(int) for i in range(0,folds)]
-#     testX = [np.zeros((testSessInd[i][-1], D)) for i in range(0,folds)]
-#     testY = [np.zeros((testSessInd[i][-1])).astype(int) for i in range(0,folds)]
+    # initializing input and output arrays for each folds
+    trainX = [np.zeros((trainSessInd[i][-1], D)) for i in range(0,folds)]
+    trainY = [np.zeros((trainSessInd[i][-1])).astype(int) for i in range(0,folds)]
+    testX = [np.zeros((testSessInd[i][-1], D)) for i in range(0,folds)]
+    testY = [np.zeros((testSessInd[i][-1])).astype(int) for i in range(0,folds)]
 
-#     # same split as above but now get the actual data split
-#     for s in range(0, totalSess):
-#         ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
-#         kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
-#         for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
-#             train_indices = []
-#             test_indices = []
-#             for b in ySessBlock:
-#                 if (b in train_blocks):
-#                     train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-#                 elif(b in test_blocks):
-#                     test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-#                 else:
-#                     raise Exception("Something wrong with session block splitting")
-#             trainX[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = x[np.array(train_indices).astype(int)]
-#             trainY[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = y[np.array(train_indices).astype(int)]
-#             testX[i][testSessInd[i][s]:testSessInd[i][s+1]] = x[np.array(test_indices).astype(int)]
-#             testY[i][testSessInd[i][s]:testSessInd[i][s+1]] = y[np.array(test_indices).astype(int)]
+    # same split as above but now get the actual data split
+    for s in range(0, totalSess):
+        ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
+        kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
+        for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
+            train_indices = []
+            test_indices = []
+            for b in ySessBlock:
+                if (b in train_blocks):
+                    train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+                elif(b in test_blocks):
+                    test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+                else:
+                    raise Exception("Something wrong with session block splitting")
+            trainX[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = x[np.array(train_indices).astype(int)]
+            trainY[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = y[np.array(train_indices).astype(int)]
+            testX[i][testSessInd[i][s]:testSessInd[i][s+1]] = x[np.array(test_indices).astype(int)]
+            testY[i][testSessInd[i][s]:testSessInd[i][s+1]] = y[np.array(test_indices).astype(int)]
 
-#     return trainX, trainY, trainSessInd, testX, testY, testSessInd
+    return trainX, trainY, trainSessInd, testX, testY, testSessInd
 
 # OLDEST SPLITTING DATA FUNCTION
 

@@ -255,7 +255,7 @@ class dGLM_HMM1():
                 if (present[t] == 1): # NOT missing
                     beta[t,:] = P @ (np.multiply(beta[t+1,:],phi[t+1,:,y[t+1]]))
                     beta[t,:] = beta[t,:] / ct[t+1] # scaling factor
-                if (present[t] == 0): # missing data
+                elif (present[t] == 0): # missing data
                     if (ct[t] != 1): # c[t] = 1 already from forward pass
                         raise Exception("c[t] should already be 1 from forward pass -> present in backward might not be matching with forward")
                     beta[t,:] = P @ beta[t+1,:]
@@ -541,7 +541,7 @@ class dGLM_HMM1():
 
         return -grad
     
-    def fit(self, x, y, present, initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1], fit_init_states=True):
+    def fit(self, x, y, present, initP, initpi, initW, sigma, sessInd=None, maxIter=250, tol=1e-3, L2penaltyW=1, priorDirP = [10,1], fit_init_states=False):
         '''
         Fitting function based on EM algorithm. Algorithm: observation probabilities are calculated with old weights for all sessions, then 
         forward and backward passes are done for each session, weights are optimized for one particular session (phi stays the same),
@@ -674,7 +674,7 @@ class dGLM_HMM1():
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
                 break
 
-        return p, pi, w, ll
+        return p, pi.reshape((self.k)), w, ll
 
     def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):
         if (sortedStateInd is not None):

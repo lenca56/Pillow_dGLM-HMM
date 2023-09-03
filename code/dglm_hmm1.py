@@ -676,6 +676,45 @@ class dGLM_HMM1():
 
         return p, pi.reshape((self.k)), w, ll
 
+    def evaluate(self, x, y, presentTest, p, pi, w, sessInd, sortWeights=True):
+        ''' 
+        function that gives test log-like and test accuracy with forward pass using all data!
+        '''
+        N = x.shape[0]
+        Ntest = presentTest.sum() # number of trials in test
+
+        if (sortWeights==True):
+            sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
+            w = w[:,sortedStateInd,:,:]
+            p = p[sortedStateInd,:][:,sortedStateInd]
+            pi = pi.reshape((self.k,))
+            pi = pi[sortedStateInd]
+        
+        present = np.ones((N))
+        phi = self.observation_probability(x=x, w=w)
+
+        alpha, ct, ll = self.forward_pass(y, present, p, pi, phi, sessInd[:-1])
+        beta = self.backward_pass(y, present, p, phi, ct, sessInd[:-1])
+        gamma, _ = self.posteriorLatents(y, present, p, phi, alpha, beta, ct, sessInd[:-1])
+                
+        llTest = np.sum(np.log(ct[np.argwhere(presentTest==1)])) / Ntest # average test log-likelihood per trial
+
+        # alpha, ct, ll = self.forward_pass(y, presentTest, p, pi, phi, sessInd[:-1])   
+        # llTest1 = np.sum(np.log(ct[np.argwhere(presentTest==1)])) / Ntest # average test log-likelihood per trial
+
+        gammaTest = gamma[np.argwhere(presentTest==1)].reshape((Ntest, self.k))
+        phiTest = phi[np.argwhere(presentTest==1)].reshape((Ntest, self.k, self.c))
+        yTest = y[np.argwhere(presentTest==1)].reshape((Ntest,))
+        pChoice = np.zeros((gammaTest.shape[0], self.c)) # p(y_t | x_t, w_t)
+        pChoice[:,1] = np.sum(np.multiply(gammaTest, phiTest[:,:,1]), axis=1) # p(y_t | x_t, w_t) = sum over k of gamma(z_t=k) * p (y_t|z_t=k, z_t, w_t)
+        pChoice[:,0] = 1 - pChoice[:,1]
+        choiceHard = np.argmax(pChoice, axis=1)
+        # here we use convention that positive weights mean on sensory mean correct trial => if x_t > 0 then y_t=0 is correct and vice versa
+        Nwrong = np.logical_xor(choiceHard, yTest).sum()
+        accuracyTest = (Ntest - Nwrong) / Ntest * 100 # correct predictions on observed y
+            
+        return llTest, accuracyTest #, llTest1
+
     def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):
         if (sortedStateInd is not None):
         # permute states

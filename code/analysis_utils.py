@@ -17,7 +17,7 @@ import warnings
 # from pandas.errors import SettingWithCopyWarning
 # warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
-def split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
+def split_data(N, sessInd, folds=5, blocks=10, random_state=1):
     ''' 
     splitting data function for cross-validation by giving out indices of test and train
     splits each session into consecutive blocks that randomly go into train and test => each session appears in both train and test
@@ -49,8 +49,8 @@ def split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
         trainSessInd[i] have session start indices for the i-th fold of the train data
     testX: // same for test
     '''
-    N = x.shape[0]
-    D = x.shape[1]
+    if (sessInd[-1] != N):
+        raise Exception("Number of datapoints does not match last sessInd index")
     
     # initializing
     presentTrain = [np.zeros((N)).astype(int) for i in range(0, folds)]
@@ -77,49 +77,7 @@ def split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
 
     return presentTrain, presentTest
 
-def fit_multiple_sigmas_simulated(N,K,D,C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):
-    ''' 
-    fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
-    '''
-
-    dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
-    simX = np.load(f'../data/N={N}_{K}_state_{modelType}_trainX.npy')
-    simY = np.load(f'../data/N={N}_{K}_state_{modelType}_trainY.npy')
-
-    allLl = np.zeros((inits, len(sigmaList), maxiter))
-    allP = np.zeros((inits, len(sigmaList), K,K))
-    allpi = np.zeros((inits, len(sigmaList), K))
-    allW = np.zeros((inits, len(sigmaList),N,K,D,C))
-
-    oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
- 
-    for init in range(0,inits):
-        for indSigma in range(0,len(sigmaList)): 
-            print(indSigma)
-            if (indSigma == 0): 
-                if(sigmaList[0] == 0):
-                    initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                    allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=300, tol=1e-4) # sigma does not matter here
-                else:
-                    initP, initpi, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
-            else:
-                initP = allP[init, indSigma-1] 
-                initW = allW[init, indSigma-1] 
-                initpi = allpi[init, indSigma-1] 
-            
-            if(sigmaList[indSigma] != 0):
-                # fit on whole dataset
-                allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-3) # fit the model
-                
-    if(save==True):
-        np.save(f'../data/Ll_N={N}_{K}_state_{modelType}', allLl)
-        np.save(f'../data/P_N={N}_{K}_state_{modelType}', allP)
-        np.save(f'../data/pi_N={N}_{K}_state_{modelType}', allpi)
-        np.save(f'../data/W_N={N}_{K}_state_{modelType}', allW)
-
-    return allLl, allP, allpi, allW
-
-def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1]):
+def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=None, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1]):
     ''' 
     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
     first sigma is 0 and is the GLM-HMM fit
@@ -162,17 +120,23 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=1, sigmaL
         allP[i] if len(sigmaList) x K x K numpy array of fit transition matrix for i'th fold
     allW: list of length fitFolds 
     '''
+    N = x.shape[0]
+    D = x.shape[1]
+    C = 2 # only looking at binomial classes
+
 
     # splitting data into splitFolds number of folds - each session is split individually with blocks of 10 kept together
-    trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data(x, y, sessInd, folds=splitFolds, blocks=10, random_state=1)
-    D = trainX[0].shape[1]
-    C = 2 # only looking at binomial classes
+    trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data(N, sessInd, folds=splitFolds, blocks=10, random_state=1)
+    
 
     trainLl = [np.zeros((len(sigmaList), maxiter)) for i in range(0, fitFolds)] 
     testLl = [np.zeros((len(sigmaList))) for i in range(0, fitFolds)]
     allP = [np.zeros((len(sigmaList), K, K)) for i in range(0, fitFolds)] 
     allpi = [np.zeros((len(sigmaList), K)) for i in range(0, fitFolds)] 
     allW = [] 
+
+    if (fitFolds == None):
+        fitFolds = splitFolds # fitting each train set
 
     for fold in range(0, fitFolds):
         # initializing parameters for each fold
@@ -406,7 +370,7 @@ def accuracy(x,y,z,s):
 
     return perf, ind
 
-def find_top_init_plot_loglikelihoods(ll,maxdiff,ax=None,startix=5,plot=True):
+def find_top_init_plot_loglikelihoods(ll, maxdiff, ax=None,startix=5, plot=True):
     '''
     Function from Iris' GLM-HMM github with some alterations
     
@@ -585,6 +549,49 @@ def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
             testY[i][testSessInd[i][s]:testSessInd[i][s+1]] = y[np.array(test_indices).astype(int)]
 
     return trainX, trainY, trainSessInd, testX, testY, testSessInd
+
+# OLD FUNCTION FOR FITTING MULTIPLE SIGMAS ON SIMULATED DATA    
+# def fit_multiple_sigmas_simulated(N, K, D, C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):
+#     ''' 
+#     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
+#     '''
+
+#     dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
+#     simX = np.load(f'../data/N={N}_{K}_state_{modelType}_trainX.npy')
+#     simY = np.load(f'../data/N={N}_{K}_state_{modelType}_trainY.npy')
+
+#     allLl = np.zeros((inits, len(sigmaList), maxiter))
+#     allP = np.zeros((inits, len(sigmaList), K,K))
+#     allpi = np.zeros((inits, len(sigmaList), K))
+#     allW = np.zeros((inits, len(sigmaList),N,K,D,C))
+
+#     oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
+ 
+#     for init in range(0,inits):
+#         for indSigma in range(0,len(sigmaList)): 
+#             print(indSigma)
+#             if (indSigma == 0): 
+#                 if(sigmaList[0] == 0):
+#                     initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+#                     allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=300, tol=1e-4) # sigma does not matter here
+#                 else:
+#                     initP, initpi, initW = dGLM_HMM.generate_param(sessInd=sessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) # initialize the model parameters
+#             else:
+#                 initP = allP[init, indSigma-1] 
+#                 initW = allW[init, indSigma-1] 
+#                 initpi = allpi[init, indSigma-1] 
+            
+#             if(sigmaList[indSigma] != 0):
+#                 # fit on whole dataset
+#                 allP[init, indSigma], allpi[init, indSigma], allW[init, indSigma], allLl[init, indSigma] = dGLM_HMM.fit(simX, simY,  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-3) # fit the model
+                
+#     if(save==True):
+#         np.save(f'../data/Ll_N={N}_{K}_state_{modelType}', allLl)
+#         np.save(f'../data/P_N={N}_{K}_state_{modelType}', allP)
+#         np.save(f'../data/pi_N={N}_{K}_state_{modelType}', allpi)
+#         np.save(f'../data/W_N={N}_{K}_state_{modelType}', allW)
+
+#     return allLl, allP, allpi, allW
 
 # OLDEST SPLITTING DATA FUNCTION
 

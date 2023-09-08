@@ -18,7 +18,7 @@ dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 inits = 20
 D = 4
 
-df = pd.DataFrame(columns=['init','K', 'sign']) # in total z=0,43
+df = pd.DataFrame(columns=['init','K', 'sign']) # in total z=0,159
 z = 0
 for init in range(0,inits):
     for K in [1,2,3,4]:

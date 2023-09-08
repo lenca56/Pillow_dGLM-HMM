@@ -252,13 +252,13 @@ class dGLM_HMM1():
             if (t+1 in startSessInd): # irresepective if missing or not
                 beta[t,:] = 1 # last time point of a session
             else:
-                if (present[t] == 1): # NOT missing
+                if (present[t+1] == 1): # NOT missing
                     beta[t,:] = P @ (np.multiply(beta[t+1,:],phi[t+1,:,y[t+1]]))
                     beta[t,:] = beta[t,:] / ct[t+1] # scaling factor
-                elif (present[t] == 0): # missing data
-                    if (ct[t] != 1): # c[t] = 1 already from forward pass
+                elif (present[t+1] == 0): # missing data
+                    if (ct[t+1] != 1): # c[t+1] = 1 already from forward pass
                         raise Exception("c[t] should already be 1 from forward pass -> present in backward might not be matching with forward")
-                    beta[t,:] = P @ beta[t+1,:]
+                    beta[t,:] = P @ beta[t+1,:] # CHECK THIS
                 else:
                     raise Exception('present vector can only have 0s and 1s')
         

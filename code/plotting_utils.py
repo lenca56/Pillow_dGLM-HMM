@@ -175,6 +175,25 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]],
             axes[d].legend(loc = 'center left', bbox_to_anchor=(1.04, 0.5))
     axes[D-1].set_xlabel('session')
 
+def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortWeights=True):
+    C = 2
+    if (w.ndim == 3): # it means N=1
+        w = w.reshape((1,w.shape[0],w.shape[1],w.shape[2]))
+    elif (w.ndim == 4): # 
+        K = w.shape[1]
+        D = w.shape[2]
+        if (sortWeights==True):
+            sortedStateInd = get_states_order(w, [0,w.shape[0]], stimCol=[1])
+            w = w[:,sortedStateInd,:,:]
+        for k in range(K):
+            axes.plot(sign * w[0,k,:,1], marker='o', color=colors[k],label=xlabels, linewidth=2)
+    else:
+        raise Exception("Weight matrix should have 3 or 4 dimensions (N X D x C or N x K x D x C)")
+    
+    axes.plot(xlabels,np.zeros((len(xlabels),1)),'k--')
+    axes.set_xticks(np.arange(0,len(xlabels)))
+    axes.set_xticklabels(xlabels,rotation=90)
+
 def plot_transition_matrix(P, title='Recovered', sortedStateInd=None):
     ''' 
     function that plots heatmap of transition matrix (assumed constant)

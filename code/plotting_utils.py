@@ -175,15 +175,14 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]],
             axes[d].legend(loc = 'center left', bbox_to_anchor=(1.04, 0.5))
     axes[D-1].set_xlabel('session')
 
-def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortWeights=True):
+def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortedStateInd=None):
     C = 2
     if (w.ndim == 3): # it means N=1
         w = w.reshape((1,w.shape[0],w.shape[1],w.shape[2]))
     elif (w.ndim == 4): # 
         K = w.shape[1]
         D = w.shape[2]
-        if (sortWeights==True):
-            sortedStateInd = get_states_order(w, [0,w.shape[0]], stimCol=[1])
+        if (sortedStateInd!=None):
             w = w[:,sortedStateInd,:,:]
         for k in range(K):
             axes.plot(sign * w[0,k,:,1], marker='o', color=colors[k],label=xlabels, linewidth=2)

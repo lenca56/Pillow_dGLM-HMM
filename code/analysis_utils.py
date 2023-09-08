@@ -77,22 +77,22 @@ def split_data(N, sessInd, folds=5, blocks=10, random_state=1):
 
     return presentTrain, presentTest
 
-def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=None, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1]):
+def fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain, presentTest, sigmaList=[0, 0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = None, fit_init_states=False):
     ''' 
     fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
     first sigma is 0 and is the GLM-HMM fit
-    takes arguments as CV data
+    each CV fold is fit individually
 
     Parameters
     ----------
+    K: int
+        number of latent states
     x: n x d numpy array
         full design matrix
     y : n x 1 numpy vector 
         full vector of observations with values 0,1,..,C-1
     sessInd: list of int
         indices of each session start, together with last session end + 1
-    K: int
-        number of latent states
     splitFolds: int
         number of folds to split the data in (test has approx 1/folds points of whole dataset)
     fitFolds: int 
@@ -124,62 +124,43 @@ def fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds, fitFolds=None, sig
     D = x.shape[1]
     C = 2 # only looking at binomial classes
 
+    trainLl = np.zeros((len(sigmaList), maxiter))
+    testLl = np.zeros((len(sigmaList)))
+    testAccuracy = np.zeros((len(sigmaList)))
+    allP = np.zeros((len(sigmaList), K, K))
+    allpi = np.zeros((len(sigmaList), K))
+    allW = np.zeros((len(sigmaList), N,K,D,C)) 
 
-    # splitting data into splitFolds number of folds - each session is split individually with blocks of 10 kept together
-    trainX, trainY, trainSessInd, testX, testY, testSessInd = split_data(N, sessInd, folds=splitFolds, blocks=10, random_state=1)
-    
+    oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
+    dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
 
-    trainLl = [np.zeros((len(sigmaList), maxiter)) for i in range(0, fitFolds)] 
-    testLl = [np.zeros((len(sigmaList))) for i in range(0, fitFolds)]
-    allP = [np.zeros((len(sigmaList), K, K)) for i in range(0, fitFolds)] 
-    allpi = [np.zeros((len(sigmaList), K)) for i in range(0, fitFolds)] 
-    allW = [] 
-
-    if (fitFolds == None):
-        fitFolds = splitFolds # fitting each train set
-
-    for fold in range(0, fitFolds):
-        # initializing parameters for each fold
-        N = trainX[fold].shape[0]
-        oneSessInd = [0,N] # treating whole dataset as one session for normal GLM-HMM fitting
-        dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
-        allW.append(np.zeros((len(sigmaList), N,K,D,C)))
-        trainY[fold] = trainY[fold].astype(int)
-        testY[fold] = testY[fold].astype(int)
-
-        for indSigma in range(0,len(sigmaList)): 
-            if (indSigma == 0): 
-                if(sigmaList[0] == 0): 
-                    if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
-                        oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
-                        allP[fold][indSigma] = np.copy(glmhmmP) # K x K transition matrix
-                        allW[fold][indSigma] = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
-                        allpi[fold][indSigma] = np.ones((K))/K
-                    else:
-                        initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-                        allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
+    for indSigma in range(0,len(sigmaList)): 
+        if (indSigma == 0): 
+            if(sigmaList[0] == 0): 
+                if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
+                    oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
+                    allP[indSigma] = np.copy(glmhmmP) # K x K transition matrix
+                    allW[indSigma] = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
+                    allpi[indSigma] = np.ones((K))/K
                 else:
-                    raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
-            else:
-                # initializing from previous fit
-                initP = allP[fold][indSigma-1] 
-                initW = allW[fold][indSigma-1] 
-                initpi = allpi[fold][indSigma-1] 
+                    presentAll = np.ones((N)).astype(int) # using all data for sigma=0 fit
+                    initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+                    allP[indSigma], allpi[indSigma], allW[indSigma], trainLl[indSigma] = dGLM_HMM.fit(x, y, presentAll, initP0, initpi0, initW0, sigma=reshapeSigma(0, K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-4, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states)
+            else:  
+                raise Exception("First sigma of sigmaList should be 0, meaning standard GLM-HMM")
+        else:
+            # initializing from previous fit
+            initP = allP[indSigma-1] 
+            initpi = allpi[indSigma-1] 
+            initW = allW[indSigma-1] 
             
-                # fitting dGLM-HMM
-                allP[fold][indSigma], allpi[fold][indSigma], allW[fold][indSigma], trainLl[fold][indSigma] = dGLM_HMM.fit(trainX[fold], trainY[fold],  initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=trainSessInd[fold], pi0=None, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+            # fitting dGLM-HMM
+            allP[indSigma], allpi[indSigma], allW[indSigma], trainLl[indSigma] = dGLM_HMM.fit(x, y, presentTrain, initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states) 
         
-            # evaluate on the test set
-            sess = len(trainSessInd[fold]) - 1 # number sessions
-            testPhi = dGLM_HMM.observation_probability(testX[fold], reshapeWeights(allW[fold][indSigma], trainSessInd[fold], testSessInd[fold]))
-            for s in range(0, sess):
-                # evaluate on test data for each session separately
-                _, _, temp = dGLM_HMM.forward_pass(testY[fold][testSessInd[fold][s]:testSessInd[fold][s+1]],allP[fold][indSigma],testPhi[testSessInd[fold][s]:testSessInd[fold][s+1]])
-                testLl[fold][indSigma] += temp
-    
-        testLl[fold] = testLl[fold] / testSessInd[fold][-1] # normalizing to the total number of trials in test dataset
+        # evaluate 
+        testLl[indSigma], testAccuracy[indSigma] = dGLM_HMM.evaluate(x, y, sessInd, presentTest, allP[indSigma], allpi[indSigma], allW[indSigma], sortStates=False)
 
-    return trainLl, testLl, allP, allpi, allW, trainSessInd, testSessInd
+    return allP, allpi, allW, trainLl, testLl, testAccuracy
 
 def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd, K, sigmaList=[0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1], stimCol=None):
     ''' 
@@ -240,135 +221,62 @@ def fit_eval_CV_2Dsigmas(trainX, trainY, trainSessInd, testX, testY, testSessInd
     allpi = np.zeros((len(sigmaList), len(sigmaList), K)) 
     allW = np.zeros((len(sigmaList), len(sigmaList), N,K,D,C)) 
 
-    if (sigmaList[0] == 0):
-        raise Exception('sigma 0 is given through glm-hmm W and P parameters instead, cant have sigmaList[0]=0')  
+    # if (sigmaList[0] == 0):
+    #     raise Exception('sigma 0 is given through glm-hmm W and P parameters instead, cant have sigmaList[0]=0')  
 
-    if (stimCol is None):
-        raise Exception('stimCol needs to specify which columns in the design matrix have stimuli info')
+    # if (stimCol is None):
+    #     raise Exception('stimCol needs to specify which columns in the design matrix have stimuli info')
 
 
-    if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
-        oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
-        initGlmHmmP = np.copy(glmhmmP) # K x K transition matrix
-        initGlmHmmpi = np.ones((K))/K
-        initGlmHmmW = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
-    else:
-        initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
-        initGlmHmmP, initGlmHmmpi, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY, initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
+    # if (glmhmmW is not None and glmhmmP is not None): # if parameters are given from standard GLM-HMM 
+    #     oldSessInd = [0, glmhmmW.shape[0]] # assuming glmhmmW has constant weights
+    #     initGlmHmmP = np.copy(glmhmmP) # K x K transition matrix
+    #     initGlmHmmpi = np.ones((K))/K
+    #     initGlmHmmW = reshapeWeights(glmhmmW, oldSessInd, oneSessInd, standardGLMHMM=True)
+    # else:
+    #     initP0, initpi0, initW0 = dGLM_HMM.generate_param(sessInd=oneSessInd, transitionDistribution=['dirichlet', (5, 1)], weightDistribution=['uniform', (-2,2)]) 
+    #     initGlmHmmP, initGlmHmmpi, initGlmHmmW, _ = dGLM_HMM.fit(trainX, trainY, initP0, initpi0, initW0, sigma=reshapeSigma(1, K, D), sessInd=oneSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # sigma does not matter here
             
-    for indSigma1 in range(0,len(sigmaList)):
-        for indSigma2 in range(0,len(sigmaList)): 
-            # creating sigma with indSigma1 for delta stim and indSigma 2 for all other features
-            sigma2D = [sigmaList[indSigma2] for i in range(0,D)]
-            for i in stimCol:
-                sigma2D[i] = sigmaList[indSigma1]
-            sigma2D = np.array(sigma2D).reshape(1,D)
-            sigma2D = reshapeSigma(sigma2D, K, D)
+    # for indSigma1 in range(0,len(sigmaList)):
+    #     for indSigma2 in range(0,len(sigmaList)): 
+    #         # creating sigma with indSigma1 for delta stim and indSigma 2 for all other features
+    #         sigma2D = [sigmaList[indSigma2] for i in range(0,D)]
+    #         for i in stimCol:
+    #             sigma2D[i] = sigmaList[indSigma1]
+    #         sigma2D = np.array(sigma2D).reshape(1,D)
+    #         sigma2D = reshapeSigma(sigma2D, K, D)
 
-            if (indSigma1 == 0 and indSigma2 == 0): 
-                # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmpi, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
-            elif (indSigma2 == 0):
-                # initializing from previous fit on same indSigma2
-                initP = allP[indSigma1-1, indSigma2] 
-                initpi = allpi[indSigma1-1, indSigma2] 
-                initW = allW[indSigma1-1, indSigma2]
+    #         if (indSigma1 == 0 and indSigma2 == 0): 
+    #             # fitting dGLM-HMM
+    #             allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initGlmHmmP, initGlmHmmpi, initGlmHmmW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+    #         elif (indSigma2 == 0):
+    #             # initializing from previous fit on same indSigma2
+    #             initP = allP[indSigma1-1, indSigma2] 
+    #             initpi = allpi[indSigma1-1, indSigma2] 
+    #             initW = allW[indSigma1-1, indSigma2]
                 
-                # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
-            else:
-                # initializing from previous fit on same indSigma1
-                initP = allP[indSigma1, indSigma2-1] 
-                initpi = allpi[indSigma1, indSigma2-1]
-                initW = allW[indSigma1, indSigma2-1] 
+    #             # fitting dGLM-HMM
+    #             allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+    #         else:
+    #             # initializing from previous fit on same indSigma1
+    #             initP = allP[indSigma1, indSigma2-1] 
+    #             initpi = allpi[indSigma1, indSigma2-1]
+    #             initW = allW[indSigma1, indSigma2-1] 
                 
-                # fitting dGLM-HMM
-                allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
+    #             # fitting dGLM-HMM
+    #             allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], allW[indSigma1, indSigma2], trainLl[indSigma1, indSigma2] = dGLM_HMM.fit(trainX, trainY,  initP, initpi, initW, sigma=sigma2D, sessInd=trainSessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP) # fit the model
 
-            # evaluate on the test set
-            sess = len(trainSessInd) - 1 # number sessions
-            testPhi = dGLM_HMM.observation_probability(testX, reshapeWeights(allW[indSigma1, indSigma2], trainSessInd, testSessInd))
-            for s in range(0, sess):
-                # evaluate on test data for each session separately
-                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]], allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], testPhi[testSessInd[s]:testSessInd[s+1]])
-                testLl[indSigma1, indSigma2] += temp
+    #         # evaluate on the test set
+    #         sess = len(trainSessInd) - 1 # number sessions
+    #         testPhi = dGLM_HMM.observation_probability(testX, reshapeWeights(allW[indSigma1, indSigma2], trainSessInd, testSessInd))
+    #         for s in range(0, sess):
+    #             # evaluate on test data for each session separately
+    #             _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]], allP[indSigma1, indSigma2], allpi[indSigma1, indSigma2], testPhi[testSessInd[s]:testSessInd[s+1]])
+    #             testLl[indSigma1, indSigma2] += temp
         
-    testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test dataset
+    # testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test dataset
 
     return trainLl, testLl, allP,  allpi, allW, trainSessInd, testSessInd
-
-
-def evaluate_multiple_sigmas_simulated(N,K,D,C, trainSessInd=None, testSessInd=None, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], modelType='drift', save=False):
-    ''' 
-    function for evaluating previously fit models with different sigmas on the same test set of simulated data
-    '''
-    testX = np.load(f'../data/{K}_state_{modelType}_testX.npy')
-    testY = np.load(f'../data/{K}_state_{modelType}_testY.npy')
-    allP = np.load(f'../data/P_N={N}_{K}_state_{modelType}.npy')
-    allpi = np.load(f'../data/pi_N={N}_{K}_state_{modelType}.npy')
-    allW = np.load(f'../data/W_N={N}_{K}_state_{modelType}.npy')
-    sess = 10
-    inits = allW.shape[0]
-    testLl = np.zeros((inits, len(sigmaList)))
-    dGLM_HMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
-
-    if (trainSessInd is None): # same length sessions
-        trainT = int(N/sess)
-        trainSessInd = [x for x in range(0,trainT*sess+trainT, trainT)]
-    if (testSessInd is None): # same length sessions
-        testT = int(testX.shape[0]/sess)
-        testSessInd = [x for x in range(0,testT*sess+testT,testT)]
-    
-    # Evaluate on test data
-    for init in range(0,inits):
-        for indSigma in range(0, len(sigmaList)):  
-            for s in range(0, sess):
-                # evaluate on test data for each session separately
-                testPhi = dGLM_HMM.observation_probability(testX, reshapeWeights(allW[init, indSigma], trainSessInd, testSessInd))
-                _, _, temp = dGLM_HMM.forward_pass(testY[testSessInd[s]:testSessInd[s+1]], allP[init, indSigma], allpi[init, indSigma], testPhi[testSessInd[s]:testSessInd[s+1]])
-                testLl[init, indSigma] += temp
-    
-    testLl = testLl / testSessInd[-1] # normalizing to the total number of trials in test
-
-    if(save==True):
-        np.save(f'../data/testLl_N={N}_{K}_state_{modelType}', testLl)
-    
-    return testLl
-
-def accuracy(x,y,z,s):
-    '''
-    Calculates and plots percentage accuracy (given X and Y) and percentage accuracy in state 0 (given Z)
-
-    X: N x D numpy array
-    Y: N x 1 numpy array
-    s: int
-        number of sessions
-    '''
-    n = x.shape[0]
-    perf = np.zeros((s,))
-    trials = int(n/s)
-    state0 = np.empty((s,))
-    ind = []
-    for sess in range(0,s):
-        state0[sess] = trials - z[sess*trials:(sess+1)*trials].sum()
-        for t in range(0,trials):
-            if (x[sess*trials+t,1]>0 and y[sess*trials+t]==1):
-                perf[sess]+=1
-            elif (x[sess*trials+t,1]<0 and y[sess*trials+t]==0):
-                perf[sess]+=1
-            else:
-                ind.append(sess*trials+t)
-
-    perf = perf / trials # normalize to number of trials per session
-    state0 = state0 / trials
-    plt.plot(range(0,s),state0*100,marker='o',color='darkgray',label='in state 0')
-    plt.plot(range(0,s),perf*100,marker='o',label="accurracy")
-    plt.ylabel("percentage %")
-    plt.xlabel("sesion")
-    plt.legend(fontsize='small')
-    plt.show()
-
-    return perf, ind
 
 def find_top_init_plot_loglikelihoods(ll, maxdiff, ax=None,startix=5, plot=True):
     '''
@@ -462,93 +370,92 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
     return x, y, sessInd
 
 # # OLD SPLITTING DATA FUNCTION
-
-def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
-    ''' 
-    function no longer used starting with September 1st 2023
+# def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
+#     ''' 
+#     function no longer used starting with September 1st 2023
     
-    splitting data function for cross-validation
-    currently does not balance trials for each session
+#     splitting data function for cross-validation
+#     currently does not balance trials for each session
 
-    !Warning: each session must have at least (folds-1) * blocks  trials
+#     !Warning: each session must have at least (folds-1) * blocks  trials
 
-    Parameters
-    ----------
-    x: n x d numpy array
-        full design matrix
-    y : n x 1 numpy vector 
-        full vector of observations with values 0,1,..,C-1
-    sessInd: list of int
-        indices of each session start, together with last session end + 1
-    folds: int
-        number of folds to split the data in (test has 1/folds points of whole dataset)
-    blocks: int (default = 10)
-        blocks of trials to keep together when splitting data (to keep some time dependencies)
-    random_state: int (default=1)
-        random seed to always get the same split if unchanged
+#     Parameters
+#     ----------
+#     x: n x d numpy array
+#         full design matrix
+#     y : n x 1 numpy vector 
+#         full vector of observations with values 0,1,..,C-1
+#     sessInd: list of int
+#         indices of each session start, together with last session end + 1
+#     folds: int
+#         number of folds to split the data in (test has 1/folds points of whole dataset)
+#     blocks: int (default = 10)
+#         blocks of trials to keep together when splitting data (to keep some time dependencies)
+#     random_state: int (default=1)
+#         random seed to always get the same split if unchanged
 
-    Returns
-    -------
-    trainX: list of train_size[i] x d numpy arrays
-        trainX[i] has input train data of i-th fold
-    trainY: list of train_size[i] numpy arrays
-        trainY[i] has output train data of i-th fold
-    trainSessInd: list of lists
-        trainSessInd[i] have session start indices for the i-th fold of the train data
-    testX: // same for test
-    '''
-    N = x.shape[0]
-    D = x.shape[1]
+#     Returns
+#     -------
+#     trainX: list of train_size[i] x d numpy arrays
+#         trainX[i] has input train data of i-th fold
+#     trainY: list of train_size[i] numpy arrays
+#         trainY[i] has output train data of i-th fold
+#     trainSessInd: list of lists
+#         trainSessInd[i] have session start indices for the i-th fold of the train data
+#     testX: // same for test
+#     '''
+#     N = x.shape[0]
+#     D = x.shape[1]
     
-    # initializing session indices for each fold
-    trainSessInd = [[0] for i in range(0, folds)]
-    testSessInd = [[0] for i in range(0, folds)]
+#     # initializing session indices for each fold
+#     trainSessInd = [[0] for i in range(0, folds)]
+#     testSessInd = [[0] for i in range(0, folds)]
 
-    # split session indices into blocks and get session indices for train and test
-    totalSess = len(sessInd) - 1
-    for s in range(0, totalSess):
-        ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
-        kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
-        for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
-            train_indices = []
-            test_indices = []
-            for b in ySessBlock:
-                if (b in train_blocks):
-                    train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-                elif(b in test_blocks):
-                    test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-                else:
-                    raise Exception("Something wrong with session block splitting")
+#     # split session indices into blocks and get session indices for train and test
+#     totalSess = len(sessInd) - 1
+#     for s in range(0, totalSess):
+#         ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
+#         kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
+#         for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
+#             train_indices = []
+#             test_indices = []
+#             for b in ySessBlock:
+#                 if (b in train_blocks):
+#                     train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+#                 elif(b in test_blocks):
+#                     test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+#                 else:
+#                     raise Exception("Something wrong with session block splitting")
 
-            trainSessInd[i].append(len(train_indices)+ trainSessInd[i][-1])
-            testSessInd[i].append(len(test_indices) + testSessInd[i][-1])
+#             trainSessInd[i].append(len(train_indices)+ trainSessInd[i][-1])
+#             testSessInd[i].append(len(test_indices) + testSessInd[i][-1])
 
-    # initializing input and output arrays for each folds
-    trainX = [np.zeros((trainSessInd[i][-1], D)) for i in range(0,folds)]
-    trainY = [np.zeros((trainSessInd[i][-1])).astype(int) for i in range(0,folds)]
-    testX = [np.zeros((testSessInd[i][-1], D)) for i in range(0,folds)]
-    testY = [np.zeros((testSessInd[i][-1])).astype(int) for i in range(0,folds)]
+#     # initializing input and output arrays for each folds
+#     trainX = [np.zeros((trainSessInd[i][-1], D)) for i in range(0,folds)]
+#     trainY = [np.zeros((trainSessInd[i][-1])).astype(int) for i in range(0,folds)]
+#     testX = [np.zeros((testSessInd[i][-1], D)) for i in range(0,folds)]
+#     testY = [np.zeros((testSessInd[i][-1])).astype(int) for i in range(0,folds)]
 
-    # same split as above but now get the actual data split
-    for s in range(0, totalSess):
-        ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
-        kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
-        for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
-            train_indices = []
-            test_indices = []
-            for b in ySessBlock:
-                if (b in train_blocks):
-                    train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-                elif(b in test_blocks):
-                    test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
-                else:
-                    raise Exception("Something wrong with session block splitting")
-            trainX[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = x[np.array(train_indices).astype(int)]
-            trainY[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = y[np.array(train_indices).astype(int)]
-            testX[i][testSessInd[i][s]:testSessInd[i][s+1]] = x[np.array(test_indices).astype(int)]
-            testY[i][testSessInd[i][s]:testSessInd[i][s+1]] = y[np.array(test_indices).astype(int)]
+#     # same split as above but now get the actual data split
+#     for s in range(0, totalSess):
+#         ySessBlock = np.arange(0, (sessInd[s+1]-sessInd[s])/blocks)
+#         kf = KFold(n_splits=folds, shuffle=True, random_state=random_state) # shuffle=True and random_state=int for random splitting, otherwise it's consecutive
+#         for i, (train_blocks, test_blocks) in enumerate(kf.split(ySessBlock)):
+#             train_indices = []
+#             test_indices = []
+#             for b in ySessBlock:
+#                 if (b in train_blocks):
+#                     train_indices = train_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+#                 elif(b in test_blocks):
+#                     test_indices = test_indices + list(np.arange(sessInd[s] + b*blocks, min(sessInd[s] + (b+1) * blocks, sessInd[s+1])))
+#                 else:
+#                     raise Exception("Something wrong with session block splitting")
+#             trainX[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = x[np.array(train_indices).astype(int)]
+#             trainY[i][trainSessInd[i][s]:trainSessInd[i][s+1]] = y[np.array(train_indices).astype(int)]
+#             testX[i][testSessInd[i][s]:testSessInd[i][s+1]] = x[np.array(test_indices).astype(int)]
+#             testY[i][testSessInd[i][s]:testSessInd[i][s+1]] = y[np.array(test_indices).astype(int)]
 
-    return trainX, trainY, trainSessInd, testX, testY, testSessInd
+#     return trainX, trainY, trainSessInd, testX, testY, testSessInd
 
 # OLD FUNCTION FOR FITTING MULTIPLE SIGMAS ON SIMULATED DATA    
 # def fit_multiple_sigmas_simulated(N, K, D, C, sessInd, sigmaList=[0.01,0.032,0.1,0.32,1,10,100], inits=1, maxiter=400, modelType='drift', save=False):

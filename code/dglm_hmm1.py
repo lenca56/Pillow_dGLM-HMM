@@ -153,9 +153,9 @@ class dGLM_HMM1():
         y = reshapeObs(y) # reshaping from n x c to n x 1
 
         if (save==True):
-            np.save(f'../data_M1/{title}X', x)
-            np.save(f'../data_M1/{title}Y', y)
-            np.save(f'../data_M1/{title}Z', z)
+            np.save(f'../data_M1/{title}x', x)
+            np.save(f'../data_M1/{title}y', y)
+            np.save(f'../data_M1/{title}z', z)
 
         return x, y, z
 
@@ -676,14 +676,14 @@ class dGLM_HMM1():
 
         return p, pi.reshape((self.k)), w, ll
 
-    def evaluate(self, x, y, presentTest, p, pi, w, sessInd, sortWeights=True):
+    def evaluate(self, x, y, sessInd, presentTest, p, pi, w, sortStates=False):
         ''' 
         function that gives test log-like and test accuracy with forward pass using all data!
         '''
         N = x.shape[0]
         Ntest = presentTest.sum() # number of trials in test
 
-        if (sortWeights==True):
+        if (sortStates==True):
             sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
             w = w[:,sortedStateInd,:,:]
             p = p[sortedStateInd,:][:,sortedStateInd]
@@ -708,11 +708,11 @@ class dGLM_HMM1():
         pChoice = np.zeros((gammaTest.shape[0], self.c)) # p(y_t | x_t, w_t)
         pChoice[:,1] = np.sum(np.multiply(gammaTest, phiTest[:,:,1]), axis=1) # p(y_t | x_t, w_t) = sum over k of gamma(z_t=k) * p (y_t|z_t=k, z_t, w_t)
         pChoice[:,0] = 1 - pChoice[:,1]
-        choiceHard = np.argmax(pChoice, axis=1)
-        # here we use convention that positive weights mean on sensory mean correct trial => if x_t > 0 then y_t=0 is correct and vice versa
+        choiceHard = np.argmax(pChoice, axis=1) # predicted choice of animal
+
         Nwrong = np.logical_xor(choiceHard, yTest).sum()
         accuracyTest = (Ntest - Nwrong) / Ntest * 100 # correct predictions on observed y
-            
+        
         return llTest, accuracyTest #, llTest1
 
     def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):

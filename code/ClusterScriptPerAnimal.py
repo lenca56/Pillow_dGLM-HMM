@@ -37,19 +37,17 @@ maxiter = 300
 splitFolds = 4
 fitFolds = 4 
 
-initParam = 'all' # initializing for best GLM-HMM fit from all animals or subject-specific one
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 
 # fitting for K = 1,2,3,4
 x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
+N = x.shape[0]
+presentTrain, presentTest = split_data(N, sessInd, folds=5, blocks=10, random_state=1)
 
-if (initParam == 'all'):
-    glmhmmW = np.load(f'../data_IBL/W_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-    glmhmmP = np.load(f'../data_IBL/P_IBL_allAnimals_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-elif(initParam == 'subject'):
-    glmhmmW = np.load(f'../data_IBL/W_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
-    glmhmmP = np.load(f'../data_IBL/P_IBL_{subject}_bestGLMHMM-Iris_D={D}_{K}-state.npy')
+glmhmmW = np.load(f'../data_IBL/Best_sigma=0_allAnimals_D={D}_{K}-state_W.npy')
+glmhmmP = np.load(f'../data_IBL/Best_sigma=0_allAnimals_D={D}_{K}-state_P.npy')
+
 
 # fitting
 trainLl, testLl, allP,  allpi, allW, trainSessInd, testSessInd = fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds=splitFolds, fitFolds=fitFolds, sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP)

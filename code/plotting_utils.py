@@ -120,7 +120,7 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     if (label is not None):
         axes.legend(loc='lower right')
 
-def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', sortedStateInd=None):
+def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
 
     # permute weights 
     if (sortedStateInd is not None):
@@ -148,7 +148,8 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linew
             axes[k].set_ylim(yLim)
             axes[k].set_ylabel("weights")
             axes[k].set_title(f'State {k+1}')
-            axes[k].legend()
+            if (legend==True):
+                axes[k].legend()
         axes[K-1].set_xlabel('session')
 
 def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):

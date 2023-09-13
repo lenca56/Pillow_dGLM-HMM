@@ -9,6 +9,8 @@ import seaborn as sns
 from scipy.optimize import minimize
 from utils import *
 from scipy.stats import multivariate_normal
+import dglm_hmm1
+
 
 colormap = sns.color_palette("viridis")
 colors_dark = ['darkblue','darkred','darkgreen','darkgoldenrod']
@@ -230,6 +232,31 @@ def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
         for k in range(0,K):
             axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}')
         axes[i].legend()
+
+def plotting_psychometric(w, sessInd, session, axes, colorsStates):
+    ''' 
+    '''
+    N = w.shape[0]
+    K = w.shape[1]
+    D = w.shape[2]
+    C = w.shape[3]
+
+    d = 2
+    x = np.ones((N, d)) # bias and delta stimulus only
+    x[:,1] = np.linspace(-2,2,N)
+
+    dGLMHMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
+    phi = dGLMHMM.observation_probability(x, np.repeat(w[sessInd[session]][np.newaxis], N, axis=0)[:,:d,:,:])
+
+    axes.set_title(f'session {session}')
+    axes.set_ylim(-0.05,1.05)
+    axes.set_ylabel('P(Right)')
+    axes.set_xlabel('delta stimulus')
+
+    for k in range(0,K):
+        axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=2, label=f'state {k+1}')
+
+    axes.legend(loc='upper left')
 
 from datetime import date, datetime, timedelta
 

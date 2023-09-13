@@ -110,10 +110,10 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     # sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
     axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label, alpha=alpha)
     if(sigmaList[0]==0):
-        axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color)
+        axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color, alpha=alpha)
         axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaListOdd])
     else:
-        axes.scatter(np.log(sigmaList[0]), testLl[0], color=color)
+        axes.scatter(np.log(sigmaList[0]), testLl[0], color=color, alpha=alpha)
         axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma,3)}' for sigma in sigmaListEven])
     axes.set_ylabel("Test LL (per trial)")
     axes.set_xlabel("sigma")
@@ -152,7 +152,7 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linew
                 axes[k].legend()
         axes[K-1].set_xlabel('session')
 
-def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
+def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', alpha=0.9, legend=True, sortedStateInd=None):
     
     # permute weights 
     if (sortedStateInd is not None):
@@ -163,9 +163,12 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]],
     sess = len(sessInd)-1
 
     for d in range(0,D):
-        axes[d].axhline(0, alpha=0.3, color='black',linestyle='-')
+        axes[d].axhline(0, alpha=0.2, color='black',linestyle='--')
         for k in range(0, K):
-            axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=f'state {k+1}', alpha=0.8, linestyle=linestyle)
+            if (legend==True):
+                axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=f'state {k+1}', alpha=alpha, linestyle=linestyle)
+            else:
+                axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=None, alpha=alpha, linestyle=linestyle)
         if (d==1): #stimulus columns
             axes[d].set_ylim(yLim[1])
         else: #stimulus columns

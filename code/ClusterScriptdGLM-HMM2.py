@@ -15,12 +15,13 @@ import os
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject'])
+splitFolds=5
 
-df = pd.DataFrame(columns=['subject','K','fold']) # in total z=0,131
+df = pd.DataFrame(columns=['subject','K','fold']) # in total z=0,219
 z = 0
 for subject in subjectsWitten:
-    for K in [1,2,3]:
-        for fold in [0,1,2,3]:
+    for K in [1,2,3,4]:
+        for fold in range(splitFolds):
             df.loc[z, 'subject'] = subject
             df.loc[z, 'K'] = K
             df.loc[z, 'fold'] = fold
@@ -28,37 +29,39 @@ for subject in subjectsWitten:
 
 # read from cluster array in order to get parallelizations
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-# idx = int(sys.argv[1])
 subject = df.loc[idx,'subject']
 K = df.loc[idx,'K']
 fold = df.loc[idx,'fold']
 
 # setting hyperparameters
-alphaList = [4**x for x in list(np.arange(-1,9,1, dtype=float))] 
+alphaList = [2*(10**x) for x in list(np.arange(-1,6,0.5,dtype=float))] 
+sigmaList = [0] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
 L2penaltyW = 1
+maxiter = 200
+bestSigma = 1 # verified from fitting multiple sigmas
 priorDirP = None
-maxiter = 300
-splitFolds = 4
-fitFolds = 4 
+fit_init_states = False
 
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 
 # fitting for K = 1,2,3,4
 x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
+N = x.shape[0]
+presentTrain, presentTest = split_data(N, sessInd, folds=splitFolds, blocks=10, random_state=1)
 
 # parameters for best model in dGLM-HMM1 (only weights varying)
-dglmhmm1W = np.load(f'')
-dglmhmm1P = np.load(f'')
+dglmhmmW = np.load(f'../data_IBL/{subject}_bestW_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')
+globalP = np.load(f'../data_IBL/{subject}_bestP_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')  
 
 # fitting
-# trainLl, testLl, allP, allW, trainSessInd, testSessInd = fit_eval_CV_multiple_sigmas(x, y, sessInd, K, splitFolds=splitFolds, fitFolds=fitFolds, sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP)
-        
-# # saving
-# for fold in range(0, fitFolds):
-#     np.save(f'../data_IBL/{subject}/trainLl_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', trainLl[fold])
-#     np.save(f'../data_IBL/{subject}/testLl_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', testLl[fold])
-#     np.save(f'../data_IBL/{subject}/P_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', allP[fold])
-#     np.save(f'../data_IBL/{subject}/W_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', allW[fold])
-#     np.save(f'../data_IBL/{subject}/trainSessInd_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', np.array(trainSessInd[fold]))
-#     np.save(f'../data_IBL/{subject}/testSessInd_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}_init-{initParam}', np.array(testSessInd[fold]))
+P, pi, W, trainLl, testLl, testAccuracy = fit_eval_CV_multiple_alphas(K, x, y, sessInd, presentTrain[fold], presentTest[fold], alphaList=alphaList, maxiter=maxiter, dglmhmmW=dglmhmmW, globalP=globalP, bestSigma=bestSigma, L2penaltyW=1, fit_init_states=fit_init_states)
+                                                 
+# saving
+np.save(f'../data_IBL/{subject}/{subject}_trainLl_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl)
+np.save(f'../data_IBL/{subject}/{subject}_testLl_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', testLl)
+np.save(f'../data_IBL/{subject}/{subject}_testAccuracy_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', testAccuracy)
+np.save(f'../data_IBL/{subject}/{subject}_P_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', P)
+if (fit_init_states==True):
+    np.save(f'../data_IBL/{subject}/{subject}_pi_{subject}_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', pi)
+np.save(f'../data_IBL/{subject}/{subject}_W_D={D}_{K}_state_fold-{fold}_alphas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', W)

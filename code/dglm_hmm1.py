@@ -72,19 +72,6 @@ class dGLM_HMM1():
         phi = np.exp(phi)
         return phi  
 
-    def loss(self, w, x, y, gamma):
-        ''' 
-        w: D x 1 numpy vector
-        x: D x 1 numpy vector
-        gamma: scalar
-        y: 0 or 1 scalar
-        '''
-        return gamma * math.log(math.exp(-y * w @ x)/(1+math.exp(-w @ x)))
-
-    def grad_loss(self, w, x, y, gamma):
-        return gamma * ( softplus_deriv(-w @ x) - y) * x
-
-
     def simulate_data(self, trueW, trueP, truepi, sessInd, save=False, title='sim'):
         '''
         function that simulates X and Y data from true weights and true transition matrix
@@ -93,7 +80,7 @@ class dGLM_HMM1():
         ----------
         trueW: n x k x d x c numpy array
             true weight matrix. for c=2, trueW[:,:,:,1] = 0 
-        trueP: k x k numpy array
+        trueP: T x k x k numpy array
             true probability transition matrix
         priorZstart: int
             0.5 probability of starting a session with state 0 (works for C=2)
@@ -742,27 +729,6 @@ class dGLM_HMM1():
             gamma[sessInd[s]:sessInd[s+1],:] = gammaSess[:,:] 
         
         return gamma
-    
-    def get_test_accuracy(self, testX, testY, testSessInd, p, pi, w):
-        ''' 
-        TO BE CHANGED LIKE JONATHAN SAID!!!
-        
-        '''
-        T = testX.shape[0]
-        D = testX.shape[1]
-        C = 2
-
-        gamma = self.get_posterior_latent(p, pi, w, testX, testY, testSessInd)
-        phi = self.observation_probability(testX, w)
-
-        pChoice = np.zeros((gamma.shape[0],C))
-        pChoice[:,1] = np.sum(np.multiply(gamma, phi[:,:,1]), axis=1)
-        pChoice[:,0] = 1 - pChoice[:,1]
-        choiceHard = np.argmax(pChoice, axis=1)
-        accuracy = (testY.shape[0] - np.logical_xor(choiceHard, testY).sum()) / testY.shape[0] * 100
-        
-        return choiceHard, accuracy
-
     
     # def all_states_weight_loss_function(self, currentW, x, y, gamma, prevW, nextW, sigma):
     #     '''

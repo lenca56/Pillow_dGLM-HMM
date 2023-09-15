@@ -6,7 +6,7 @@ import scipy.stats as stats
 from scipy.optimize import minimize
 from utils import *
 from plotting_utils import *
-import dglm_hmm1
+import dglm_hmm1, dglm_hmm2
 from scipy.stats import multivariate_normal, norm
 import seaborn as sns
 from sklearn.model_selection import KFold
@@ -93,10 +93,10 @@ def fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain, presentTest, sig
         full vector of observations with values 0,1,..,C-1
     sessInd: list of int
         indices of each session start, together with last session end + 1
-    splitFolds: int
-        number of folds to split the data in (test has approx 1/folds points of whole dataset)
-    fitFolds: int 
-        number of folds to actually train on (default=1)
+    presentTrain: numpy vector
+        list of indices in the train set for a single fold
+    presentTest: numpy vector
+        list of indices in the test set for a single fold
     sigmaList: list of positive numbers, starting with 0 (default =[0, 0.01, 0.1, 1, 10, 100])
         weight drifting hyperparameter list
     maxiter: int 
@@ -161,6 +161,91 @@ def fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain, presentTest, sig
         testLl[indSigma], testAccuracy[indSigma] = dGLM_HMM.evaluate(x, y, sessInd, presentTest, allP[indSigma], allpi[indSigma], allW[indSigma], sortStates=False)
 
     return allP, allpi, allW, trainLl, testLl, testAccuracy
+
+def fit_eval_CV_multiple_alphas(K, x, y, sessInd, presentTrain, presentTest, alphaList=[0, 1, 10, 100, 1000, 10000], maxiter=200, dglmhmmW=None, globalP=None, bestSigma=None, L2penaltyW=1, fit_init_states=False):
+    ''' 
+    fitting function for multiple values of sigma with initializing from the previously found parameters with increasing order of fitting sigma
+    first sigma is 0 and is the GLM-HMM fit
+    each CV fold is fit individually
+
+    Parameters
+    ----------
+    K: int
+        number of latent states
+    x: n x d numpy array
+        full design matrix
+    y : n x 1 numpy vector 
+        full vector of observations with values 0,1,..,C-1
+    sessInd: list of int
+        indices of each session start, together with last session end + 1
+    presentTrain: numpy vector
+        list of indices in the train set for a single fold
+    presentTest: numpy vector
+        list of indices in the test set for a single fold
+    alphaList: list of positive numbers, starting with 0 (default =[0, 0.01, 0.1, 1, 10, 100])
+        weight drifting hyperparameter list
+    maxiter: int 
+        maximum number of iterations before EM stopped (default=300)
+    glmhmmW: Nsize x K x D x C numpy array 
+        given weights from glm-hmm fit (default=None)
+    glmhmmP=None: K x K numpy array 
+        given transition matrix from glm-hmm fit (default=None)
+    L2penaltyW: int
+        positive value determinig strength of L2 penalty on weights when fitting (default=1)
+    priorDirP : list of length 2
+        first number is Dirichlet prior on diagonal, second number is the off-diagonal (default = [10,1])
+
+    Returns
+    ----------
+    trainLl: list of length fitFolds 
+        trainLl[i] is len(sigmaList) x maxiter numpy array of training log like for i'th fold
+    testLl: list of length fitFolds 
+        testLl[i] is len(sigmaList) numpy vector of normalized test log like for i'th fold
+    allP: list of length fitFolds 
+        allP[i] if len(sigmaList) x K x K numpy array of fit transition matrix for i'th fold
+    allW: list of length fitFolds 
+    '''
+    N = x.shape[0]
+    D = x.shape[1]
+    C = 2 # only looking at binomial classes
+
+    trainLl = np.zeros((len(alphaList)+1, maxiter))
+    testLl = np.zeros((len(alphaList)+1))
+    testAccuracy = np.zeros((len(alphaList)+1))
+    allP = np.zeros((len(alphaList)+1, N, K, K))
+    allpi = np.zeros((len(alphaList)+1, K))
+    allW = np.zeros((len(alphaList)+1, N,K,D,C)) 
+
+    dGLM_HMM2 = dglm_hmm2.dGLM_HMM2(N,K,D,C)
+
+    if (dglmhmmW is None or globalP is None): # fitting dGLM-HMM1 where only weights are varying
+        raise Exception("dglmhmmW AND  globalPneed to be given from dGLM-HMM1 parameter fitting of best sigma")
+    if (bestSigma is None): # fitting dGLM-HMM1 where only weights are varying
+        raise Exception("bestSigma need to be given from dGLM-HMM1 fitting of best sigma value")
+    
+    allP[len(alphaList)] = reshapeP_M1_to_M2(globalP, N)
+    allpi[len(alphaList)] = np.ones((K))/K    
+    allW[len(alphaList)] = np.copy(dglmhmmW)
+    
+    # evaluate 
+    testLl[len(alphaList)], testAccuracy[len(alphaList)] = dGLM_HMM2.evaluate(x, y, sessInd, presentTest, allP[len(alphaList)], allpi[len(alphaList)], allW[len(alphaList)], sortStates=False)
+
+
+    for indAlpha in range(len(alphaList)-1,-1,-1): 
+
+        # initializing from previous fit which means higher alpha
+        initP = allP[indAlpha+1] 
+        initpi = allpi[indAlpha+1] 
+        initW = allW[indAlpha+1] 
+            
+        # fitting dGLM-HMM
+        allP[indAlpha], allpi[indAlpha], allW[indAlpha], trainLl[indAlpha] = dGLM_HMM2.fit(x, y, presentTrain, initP, initpi, initW, sigma=reshapeSigma(bestSigma, K, D), alpha=alphaList[indAlpha], globalP=globalP, sessInd=sessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, fit_init_states=fit_init_states) 
+   
+        # evaluate 
+        testLl[indAlpha], testAccuracy[indAlpha] = dGLM_HMM2.evaluate(x, y, sessInd, presentTest, allP[indAlpha], allpi[indAlpha], allW[indAlpha], sortStates=False)
+
+    return allP, allpi, allW, trainLl, testLl, testAccuracy
+
 
 def fit_eval_CV_2Dsigmas(K, x, y, sessInd, presentTrain, presentTest, sigmaList=[0.01, 0.1, 1, 10, 100], maxiter=300, glmhmmW=None, glmhmmP=None, L2penaltyW=1, priorDirP = [10,1], stimCol=None, fit_init_states=False):
     ''' 

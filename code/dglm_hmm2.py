@@ -657,6 +657,7 @@ class dGLM_HMM2():
         
             # check if stopping early 
             if (iter >= 10 and ll[iter] - ll[iter-1] < tol):
+                print("Stopped iter ", iter)
                 break
 
         return p, pi.reshape((self.k)), w, ll

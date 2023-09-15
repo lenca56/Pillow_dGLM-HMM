@@ -73,7 +73,7 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
-    axes.set_ylabel("P( state t+1 = i | state t = i )")
+    axes.set_ylabel("self-transition probabilities")
     axes.set_ylim(0.6,1)
     axes.set_xlabel('session')
     axes.legend(loc='lower right')

@@ -89,6 +89,38 @@ def reshapeWeights(w, oldSessInd, newSessInd, standardGLMHMM=False):
         
     return reshapedW
 
+def reshapeTransitionMatrix(p, oldSessInd, newSessInd):
+    ''' 
+    reshaping weights from session indices of oldSessInd to session indices of newSessInd
+
+    Parameters
+    ----------
+    P: T x k x k numpy array
+        transition matrix 
+    oldSessInd: list of int
+        old indices of each session start, together with last session end + 1
+    newSessInd: list of int
+        new indices of each session start, together with last session end + 1
+            
+    Returns
+    -------
+    reshapedP: newT x k x k
+    '''
+    
+    T = p.shape[0]
+    k = p.shape[1]
+    if (T != oldSessInd[-1]):
+        raise Exception ("Indices and weights do not match in size")
+    if (len(oldSessInd) != len(newSessInd)):
+        raise Exception ("old and new indices don't have the same number of sessions")
+        
+    newT = newSessInd[-1]
+    reshapedP = np.zeros((newT, k, k))
+    for sess in range(0,len(oldSessInd)-1):
+        reshapedP[newSessInd[sess]:newSessInd[sess+1]] = p[oldSessInd[sess]]
+        
+    return reshapedP
+
 def reshapeP_M1_to_M2(P, N):
     '''
     function reshaping transition matrix in dGLM-HMM1 of shape (K,K) to shape (N,K,K) in dGLM-HMM2

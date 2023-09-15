@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 # from jax import value_and_grad
 # import jax.numpy as jnp
 
-class dGLM_HMM1():
+class dGLM_HMM2():
     """
     Class for fitting drifting GLM-HMM model 2 in which both weights and transition matrix vary across sessions
     Code just works for c=2 at the moment!!!
@@ -129,7 +129,7 @@ class dGLM_HMM1():
                 if (t in sessInd[:-1]): # beginning of session has a new draw for latent
                     z[t] = np.random.choice(range(0, self.k), p=truepi)
                 else:
-                    z[t] = np.random.choice(range(0, self.k), p=trueP[t,z[t-1],1])
+                    z[t] = np.random.choice(range(0, self.k), p=trueP[t,z[t-1],:])
         
         # observation probabilities
         phi = self.observation_probability(x, trueW)

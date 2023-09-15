@@ -54,7 +54,7 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False, sor
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_transition_matrix_stickiness(p, sessInd, axes, trueP=None, title='', save_fig=False):
+def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='', save_fig=False, sortedStateInd=None):
     ''' 
     
     Parameters
@@ -63,6 +63,9 @@ def plotting_transition_matrix_stickiness(p, sessInd, axes, trueP=None, title=''
     Returns
     ________
     '''
+
+    if (sortedStateInd is not None):
+        p = p[:,sortedStateInd,:][:,:,sortedStateInd]
 
     sess = len(sessInd)-1
     for i in range(0,p.shape[1]):

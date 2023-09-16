@@ -35,7 +35,6 @@ fold = df.loc[idx,'fold']
 
 # setting hyperparameters
 alphaList = [2*(10**x) for x in list(np.arange(-1,6,0.5,dtype=float))] 
-sigmaList = [0] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
 L2penaltyW = 1
 maxiter = 200
 bestSigma = 1 # verified from fitting multiple sigmas

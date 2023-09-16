@@ -19,7 +19,7 @@ colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',
 colorsStates = ['darkblue','green','orange','purple']
 myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
 
-def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False, sortedStateInd=None):
+def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_dark ,save_fig=False, sortedStateInd=None):
     ''' 
     Parameters
     __________
@@ -37,8 +37,8 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False, sor
 
     sess = len(sessInd)-1
     for i in range(0,w.shape[1]):
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',label=f'state {i+1} sensory')
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colors_light[i],marker='o', label=f'state {i+1} bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colorsState[i],marker='o',label=f'state {i+1} sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colorsState[i],marker='o', label=f'state {i+1} bias')
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
@@ -54,7 +54,7 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', save_fig=False, sor
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='', save_fig=False, sortedStateInd=None):
+def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewidth=5, linestyle='-o', title='', save_fig=False, sortedStateInd=None):
     ''' 
     
     Parameters
@@ -69,13 +69,12 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='
 
     sess = len(sessInd)-1
     for i in range(0,p.shape[1]):
-        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],color=colors_dark[i],marker='o',label=f'state {i+1}')
+        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colors_dark[i], label=f'state {i+1}')
         if(trueP is not None):
             axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colors_dark[i],linestyle='dashed',label=f'state {i+1} true')
     
 
     axes.set_title(title)
-    axes.set_xticks(range(1,sess+1))
     axes.set_ylabel("self-transition probabilities")
     axes.set_ylim(0.6,1)
     axes.set_xlabel('session')
@@ -123,6 +122,27 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     axes.set_xlabel("sigma")
     if (label is not None):
         axes.legend(loc='lower right')
+
+def plot_testLl_CV_alpha(testLl, alphaList, label, color, axes, linestyle='-o', alpha=1):
+    '''  
+    function that plots test LL as a function of sigma 
+
+    Parameters
+    ----------
+    testLl: len(sigmaList) x 1 numpy array
+        per trial log-likelihood on test data
+    sigmaList: list
+
+    '''
+    axes.plot(np.log10(alphaList), testLl[:-1], linestyle, color=color, label=label, alpha=alpha)
+    axes.set_xlabel('alpha')
+    axes.set_ylabel('Test LL (per  trial)')
+    alphaListEven = [alphaList[ind] for ind in range(0,len(alphaList),2)]
+    axes.set_xticks(np.log10(alphaListEven),[f'{np.round(alpha,1)}' for alpha in alphaListEven])
+    axes.set_ylabel('Test log-like (per trial)')
+    axes.set_title('dGLM-HMM with varying transition matrix P')
+    if (label is not None):
+        axes.legend(loc='upper right')
 
 def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
 

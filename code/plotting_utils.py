@@ -69,7 +69,10 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='
 
     sess = len(sessInd)-1
     for i in range(0,p.shape[1]):
-        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],color=colors_dark[i],marker='o',label=f'state {i+1} stickiness')
+        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],color=colors_dark[i],marker='o',label=f'state {i+1}')
+        if(trueP is not None):
+            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colors_dark[i],linestyle='dashed',label=f'state {i+1} true')
+    
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
@@ -77,13 +80,9 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, title='
     axes.set_ylim(0.6,1)
     axes.set_xlabel('session')
     axes.legend(loc='lower right')
-
-    if(trueP is not None):
-        for i in range(0,p.shape[1]):
-            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colors_dark[i],marker='o',linestyle='dashed',label=f'true state {i+1} ')
-
+    
     if(save_fig==True):
-        plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}.png', bbox_inches='tight', dpi=400)
+        plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}', bbox_inches='tight', dpi=400, format='eps')
 
 def plotting_state_occupancy(z, axes, title='', save_fig=False):
     K = len(np.unique(z)) # number of states
@@ -116,10 +115,10 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label, alpha=alpha)
     if(sigmaList[0]==0):
         axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color, alpha=alpha)
-        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaListOdd])
+        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,2)}' for sigma in sigmaListOdd])
     else:
         axes.scatter(np.log(sigmaList[0]), testLl[0], color=color, alpha=alpha)
-        axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma,3)}' for sigma in sigmaListEven])
+        axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma, 2)}' for sigma in sigmaListEven])
     axes.set_ylabel("Test LL (per trial)")
     axes.set_xlabel("sigma")
     if (label is not None):

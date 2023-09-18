@@ -114,10 +114,10 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label, alpha=alpha)
     if(sigmaList[0]==0):
         axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color, alpha=alpha)
-        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,2)}' for sigma in sigmaListOdd])
+        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,1)}' for sigma in sigmaListOdd])
     else:
         axes.scatter(np.log(sigmaList[0]), testLl[0], color=color, alpha=alpha)
-        axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma, 2)}' for sigma in sigmaListEven])
+        axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma, 1)}' for sigma in sigmaListEven])
     axes.set_ylabel("Test LL (per trial)")
     axes.set_xlabel("sigma")
     if (label is not None):
@@ -187,20 +187,17 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]],
     sess = len(sessInd)-1
 
     for d in range(0,D):
-        axes[d].axhline(0, alpha=0.2, color='black',linestyle='--')
+        axes[d].axhline(0, alpha=0.2, color='black',linestyle='-')
         for k in range(0, K):
             if (legend==True):
                 axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=f'state {k+1}', alpha=alpha, linestyle=linestyle)
             else:
                 axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=None, alpha=alpha, linestyle=linestyle)
-        if (d==1): #stimulus columns
-            axes[d].set_ylim(yLim[1])
-        else: #stimulus columns
-            axes[d].set_ylim(yLim[0])
+        axes[d].set_ylim(yLim[d])
         axes[d].set_ylabel("weights")
         axes[d].set_title(f'{labels[d]}')
         if (legend==True):
-            axes[d].legend(loc = 'center left', bbox_to_anchor=(1.04, 0.5))
+            axes[d].legend(loc = 'center left', bbox_to_anchor=(0.99, 0.4))
     axes[D-1].set_xlabel('session')
 
 def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortedStateInd=None):
@@ -255,7 +252,7 @@ def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
             axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}')
         axes[i].legend()
 
-def plotting_psychometric(w, sessInd, session, axes, colorsStates):
+def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'session'):
     ''' 
     '''
     N = w.shape[0]
@@ -268,15 +265,15 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates):
     x[:,1] = np.linspace(-2,2,N)
 
     dGLMHMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
-    phi = dGLMHMM.observation_probability(x, np.repeat(w[sessInd[session]][np.newaxis], N, axis=0)[:,:d,:,:])
+    phi = dGLMHMM.observation_probability(x, np.repeat(w[sessInd[session]][np.newaxis], N, axis=0)[:,:,:d,:])
 
-    axes.set_title(f'session {session}')
+    axes.set_title(title)
     axes.set_ylim(-0.05,1.05)
     axes.set_ylabel('P(Right)')
     axes.set_xlabel('delta stimulus')
 
     for k in range(0,K):
-        axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=2, label=f'state {k+1}')
+        axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}')
 
     axes.legend(loc='upper left')
 

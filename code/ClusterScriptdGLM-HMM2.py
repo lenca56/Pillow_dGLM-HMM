@@ -26,7 +26,7 @@ for subject in subjectsWitten:
             df.loc[z, 'K'] = K
             df.loc[z, 'fold'] = fold
             z += 1
-
+# print(z)
 # read from cluster array in order to get parallelizations
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 subject = df.loc[idx,'subject']

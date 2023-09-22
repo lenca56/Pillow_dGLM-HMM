@@ -19,7 +19,7 @@ colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',
 colorsStates = ['darkblue','green','orange','purple']
 myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
 
-def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_dark ,save_fig=False, sortedStateInd=None):
+def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_dark, save_fig=False, sortedStateInd=None):
     ''' 
     Parameters
     __________
@@ -37,8 +37,8 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_
 
     sess = len(sessInd)-1
     for i in range(0,w.shape[1]):
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colorsState[i],marker='o',label=f'state {i+1} sensory')
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colorsState[i],marker='o', label=f'state {i+1} bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',label=f'state {i+1} sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colors_light[i], marker='o', label=f'state {i+1} bias')
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
@@ -54,7 +54,7 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewidth=5, linestyle='-o', title='', save_fig=False, sortedStateInd=None):
+def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewidth=5, linestyle='-o', title='', save_fig=False, colorsStates=colors_dark, sortedStateInd=None):
     ''' 
     
     Parameters
@@ -69,9 +69,9 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewid
 
     sess = len(sessInd)-1
     for i in range(0,p.shape[1]):
-        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colors_dark[i], label=f'state {i+1}')
+        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colorsStates[i], label=f'state {i+1} recovered')
         if(trueP is not None):
-            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colors_dark[i],linestyle='dashed',label=f'state {i+1} true')
+            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colorsStates[i],linestyle='dashed',label=f'state {i+1} true')
     
 
     axes.set_title(title)
@@ -110,11 +110,12 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     '''
     sigmaListEven = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==0]
     sigmaListOdd = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
+    sigmaList3 = [sigmaList[ind] for ind in range(len(sigmaList)) if ind%3==1]
     # sigmaListOdd = [sigmaList[ind] for ind in range(11) if ind%2==1] #+ [sigmaList[ind] for ind in range(11,len(sigmaList))]
     axes.plot(np.log(sigmaList[1:]), testLl[1:], linestyle, color=color, label=label, alpha=alpha)
     if(sigmaList[0]==0):
         axes.scatter(-2 + np.log(sigmaList[1]), testLl[0], color=color, alpha=alpha)
-        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaListOdd)),['GLM-HMM'] + [f'{np.round(sigma,1)}' for sigma in sigmaListOdd])
+        axes.set_xticks([-2 + np.log(sigmaList[1])]+list(np.log(sigmaList3)),['GLM-HMM'] + [f'{np.round(sigma,3)}' for sigma in sigmaList3])
     else:
         axes.scatter(np.log(sigmaList[0]), testLl[0], color=color, alpha=alpha)
         axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma, 1)}' for sigma in sigmaListEven])
@@ -238,14 +239,11 @@ def plot_transition_matrix(P, title='Recovered', sortedStateInd=None):
     s.set(xlabel='state at time t+1', ylabel='state at time t', title=f'{title} transition matrix P', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
     fig = s.get_figure()
 
-def plot_posteior_latent(gamma, sessInd, sessions = [20,68,160]):
+def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30]):
     s = len(sessions)
-    if (s>5):
-        raise Exception("Cant have more than 5 example sessions to plot")
     K = gamma.shape[1]
-    fig, axes = plt.subplots(3,1, figsize=(20,15))
     for i in range(0,s):
-        axes[i].set_title('session ' + str(sessions[i]))
+        axes[i].set_title(f'session {sessions[i]+1}' )
         axes[-1].set_xlabel('trials')
         axes[i].set_ylabel('posterior latent')
         for k in range(0,K):
@@ -272,10 +270,10 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'sessi
     axes.set_ylabel('P(Right)')
     axes.set_xlabel('delta stimulus')
 
-    for k in range(0,K):
+    for k in range(K-1,-1,-1):
         axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}')
 
-    axes.legend(loc='upper left')
+    axes.legend(loc='lower right')
 
 from datetime import date, datetime, timedelta
 

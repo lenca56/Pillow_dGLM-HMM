@@ -83,20 +83,6 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewid
     if(save_fig==True):
         plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}', bbox_inches='tight', dpi=400, format='eps')
 
-def plotting_state_occupancy(z, axes, title='', save_fig=False):
-    K = len(np.unique(z)) # number of states
-    percent_time = np.zeros((K,))
-    labels = ['state %s' %(i+1) for i in range(K)]
-    for i in range(0,K):
-        percent_time[i] = len(np.argwhere(z==i))/z.shape[0]
-
-    axes.bar(labels, percent_time, color=colors_dark)
-    axes.set_ylim(0,1)
-    axes.set_title(title)
-    axes.set_ylabel('% time in state')
-    if(save_fig==True):
-        plt.savefig(f'../figures/State_Occupancy-{title}.png', bbox_inches='tight', dpi=400)
-
 def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', alpha=1):
     '''  
     function that plots test LL as a function of sigma 
@@ -274,6 +260,23 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'sessi
         axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}')
 
     axes.legend(loc='lower right')
+
+def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
+    ''' 
+    funcion that plots percentage of trials in each state across sessions
+    '''
+    K = gamma.shape[1]
+    choiceHard = np.argmax(gamma, axis=1)
+    count = np.zeros((len(sessInd)-1,3))
+    for sess in range(0,len(sessInd)-1):
+        for k in range(0,K):
+            count[sess,k] = np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0]/(sessInd[sess+1]-sessInd[sess]) * 100
+    for k in range(0,K):
+        axes.plot(range(0,len(sessInd)-1), count[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+    axes.set_ylabel('% trial occupancy')
+    axes.set_xlabel('sessions')
+    axes.set_ylim(0,100)
+    axes.legend(loc='upper right')
 
 from datetime import date, datetime, timedelta
 

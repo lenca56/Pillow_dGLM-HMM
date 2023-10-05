@@ -283,14 +283,14 @@ def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, col
     function that plotts animal's task accuracy within each state across sessions
     '''
     K = gamma.shape[1]
-    choiceHard = np.argmax(gamma, axis=1)
+    stateHard = np.argmax(gamma, axis=1)
     correct = np.zeros((len(sessInd)-1, K))
     for session in range(0, len(sessInd)-1):
         for t in range(sessInd[session],sessInd[session+1]):
             if (correctSide[t] == y[t]):
-                correct[session, choiceHard[t]] += 1
+                correct[session, stateHard[t]] += 1
         for k in range(0,K):
-            correct[session, k] = correct[session, k] / np.where(choiceHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
+            correct[session, k] = correct[session, k] / np.where(stateHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
     for k in range(0,K):
         axes.plot(correct[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
     axes.set_ylim(0,100)
@@ -300,14 +300,14 @@ def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, col
 
 def barplot_task_accuracy(gamma, y, correctSide, sessInd, axes, session='all', colors=colorsStates):
     K = gamma.shape[1]
-    choiceHard = np.argmax(gamma, axis=1)
+    stateHard = np.argmax(gamma, axis=1)
     correct = np.zeros((len(sessInd)-1, K))
     for sess in range(0, len(sessInd)-1):
         for t in range(sessInd[sess],sessInd[sess+1]):
             if (correctSide[t] == y[t]):
-                correct[sess, choiceHard[t]] += 1
+                correct[sess, stateHard[t]] += 1
         for k in range(0,K):
-            correct[sess, k] = correct[sess, k] / np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0] * 100
+            correct[sess, k] = correct[sess, k] / np.where(stateHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0] * 100
     if (session=='all'): # task accuracy averaged across sessions
         axes.bar(['state 1','state 2','state 3'], np.nanmean(correct,axis=0), color=colorsStates) # mean calculation ignores nans
     else: 
@@ -315,8 +315,41 @@ def barplot_task_accuracy(gamma, y, correctSide, sessInd, axes, session='all', c
     axes.set_ylim(45,100)
     axes.set_ylabel('% task accuracy ')
 
-from datetime import date, datetime, timedelta
+def plot_aligned_fraction_blocks_state(gamma, sessInd, biasedBlockTrials, biasedBlockSession, axes):
+    '''  
+    plotting for each biased state, the fraction of trials in that state in bias-aligned biased blocks vs bias-opposite
+    '''
+    stateHard = np.argmax(gamma, axis=1)
+    blocksStateRight = np.zeros((len(sessInd)-1)) # fraction of right block given right state
+    blocksStateLeft = np.zeros((len(sessInd)-1))
+    for sess in range(0,len(sessInd)-1):
+        # getting indices for right/left blocks and right/left trials for the current session
+        rightBlocks = np.argwhere(biasedBlockTrials[sessInd[sess]:sessInd[sess+1]] == 1)
+        rightBlocks = set([x for [x] in rightBlocks])
+        rightStateTrials = np.argwhere(stateHard[sessInd[sess]:sessInd[sess+1]] == 1)
+        rightStateTrials = set([x for [x] in rightStateTrials])
+        leftBlocks = np.argwhere(biasedBlockTrials[sessInd[sess]:sessInd[sess+1]] == -1)
+        leftBlocks = set([x for [x] in leftBlocks])
+        leftStateTrials = np.argwhere(stateHard[sessInd[sess]:sessInd[sess+1]] == 2)
+        leftStateTrials = set([x for [x] in leftStateTrials])
 
+        if (biasedBlockSession[sess] == 1): # only for sessions with biased blocks 
+            if (len(rightStateTrials.intersection(rightBlocks)) + len(rightStateTrials.intersection(leftBlocks)) > 0):
+                blocksStateRight[sess] = len(rightStateTrials.intersection(rightBlocks)) / (len(rightStateTrials.intersection(rightBlocks)) + len(rightStateTrials.intersection(leftBlocks)))
+            if (len(leftStateTrials.intersection(leftBlocks)) + len(leftStateTrials.intersection(rightBlocks)) > 0):
+                blocksStateLeft[sess] = len(leftStateTrials.intersection(leftBlocks)) / (len(leftStateTrials.intersection(rightBlocks)) + len(leftStateTrials.intersection(leftBlocks)))
+    blocksStateRight[np.argwhere(blocksStateRight==0)] = np.nan
+    blocksStateLeft[np.argwhere(blocksStateLeft==0)] = np.nan
+    axes.set_ylabel('fraction bias-aligned blocks')
+    axes.set_xlabel('sessions')
+    axes.set_ylim(0,1)
+    axes.plot(range(1,len(sessInd)), blocksStateRight, '-o', color='forestgreen', label='state 2 - bias right')
+    axes.plot(range(1,len(sessInd)), blocksStateLeft, '-o', color='gold', label = 'state 3 - bias left')
+    axes.plot(range(1,len(sessInd)), (blocksStateRight+blocksStateLeft)/2, color='black',label='mean')
+    axes.legend()
+    axes.axhline(0.5,color='gray',linestyle='dashed')
+
+from datetime import date, datetime, timedelta
 def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):
     # code from Psytrack
     p = 5

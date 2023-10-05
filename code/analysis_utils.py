@@ -448,6 +448,34 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
     
     return x, y, sessInd, correctSide
 
+def get_design_biased_blocks(dfAll, subject, sessInd, sessStop):
+    ''' 
+    function that gives biased block trials and sessions from the experimental setup
+    '''
+    data = dfAll[dfAll['subject']==subject]   # Restrict data to the subject specified
+    dateToKeep = np.unique(data['date'])[0:sessStop]
+    dataTemp = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))]).reset_index(drop=True)
+
+    pStimLeft = np.array(dataTemp['probabilityLeft'])
+    biasedBlockSession = np.zeros((len(sessInd))) # sessions that have biased blocks are marked by 1
+    biasedBlockStartInd = np.zeros((sessInd[-1])) # first indices of biased blocks are marked by -1,1 depending on bias
+    biasedBlockTrials = np.zeros((sessInd[-1])) # trials within biased blocks are marked by -1,1 depending on bias
+    for s in range(0, len(sessInd)-1):
+        if (set(np.unique(pStimLeft[sessInd[s]:sessInd[s+1]])) <= set([0.2,0.5,0.8])): # biased block sessions
+            biasedBlockSession[s] = 1
+            for t in range(sessInd[s]+1, sessInd[s+1]): 
+                if (pStimLeft[t] != pStimLeft[t-1]): # shift in biased blocks
+                    if (pStimLeft[t] == 0.2):
+                        biasedBlockStartInd[t] = 1
+                        biasedBlockTrials[t] = 1
+                    elif (pStimLeft[t] == 0.8):
+                        biasedBlockStartInd[t] = -1
+                        biasedBlockTrials[t] = -1
+                else:
+                    biasedBlockTrials[t]=biasedBlockTrials[t-1]
+    return biasedBlockTrials, biasedBlockStartInd, biasedBlockSession
+
+
 # # OLD SPLITTING DATA FUNCTION
 # def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):
 #     ''' 

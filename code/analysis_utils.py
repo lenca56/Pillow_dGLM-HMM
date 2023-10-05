@@ -404,6 +404,9 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
     dateToKeep = np.unique(data['date'])[0:sessStop]
     dataTemp = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))])
 
+    # getting correct answer for each trial
+    correctSide = np.array(dataTemp['correctSide'])
+
     # design and out matrix
     x = np.zeros((dataTemp.shape[0], D)) 
     y = np.array(dataTemp['choice'])
@@ -443,7 +446,7 @@ def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
             dLength = len(dTemp.index.tolist())
             sessInd.append(sessInd[-1] + dLength)
     
-    return x, y, sessInd
+    return x, y, sessInd, correctSide
 
 # # OLD SPLITTING DATA FUNCTION
 # def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):

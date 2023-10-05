@@ -278,6 +278,43 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
     axes.set_ylim(0,100)
     axes.legend(loc='upper right')
 
+def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, colors=colorsStates):
+    '''   
+    function that plotts animal's task accuracy within each state across sessions
+    '''
+    K = gamma.shape[1]
+    choiceHard = np.argmax(gamma, axis=1)
+    correct = np.zeros((len(sessInd)-1, K))
+    for session in range(0, len(sessInd)-1):
+        for t in range(sessInd[session],sessInd[session+1]):
+            if (correctSide[t] == y[t]):
+                correct[session, choiceHard[t]] += 1
+        for k in range(0,K):
+            correct[session, k] = correct[session, k] / np.where(choiceHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
+    for k in range(0,K):
+        axes.plot(correct[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+    axes.set_ylim(0,100)
+    axes.set_ylabel('% task accuracy ')
+    axes.set_xlabel('session')
+    axes.legend(loc='lower right')
+
+def barplot_task_accuracy(gamma, y, correctSide, sessInd, axes, session='all', colors=colorsStates):
+    K = gamma.shape[1]
+    choiceHard = np.argmax(gamma, axis=1)
+    correct = np.zeros((len(sessInd)-1, K))
+    for sess in range(0, len(sessInd)-1):
+        for t in range(sessInd[sess],sessInd[sess+1]):
+            if (correctSide[t] == y[t]):
+                correct[sess, choiceHard[t]] += 1
+        for k in range(0,K):
+            correct[sess, k] = correct[sess, k] / np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0] * 100
+    if (session=='all'): # task accuracy averaged across sessions
+        axes.bar(['state 1','state 2','state 3'], np.nanmean(correct,axis=0), color=colorsStates) # mean calculation ignores nans
+    else: 
+        axes.bar(['state 1','state 2','state 3'], np.nan_to_num(correct[session]), color=colorsStates) # replacing nans with 0
+    axes.set_ylim(45,100)
+    axes.set_ylabel('% task accuracy ')
+
 from datetime import date, datetime, timedelta
 
 def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):

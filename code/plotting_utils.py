@@ -345,8 +345,9 @@ def plot_aligned_fraction_blocks_state(gamma, sessInd, biasedBlockTrials, biased
     axes.set_ylim(0,1)
     axes.plot(range(1,len(sessInd)), blocksStateRight, '-o', color='forestgreen', label='state 2 - bias right')
     axes.plot(range(1,len(sessInd)), blocksStateLeft, '-o', color='gold', label = 'state 3 - bias left')
-    axes.plot(range(1,len(sessInd)), (blocksStateRight+blocksStateLeft)/2, color='black',label='mean')
+    axes.plot(range(1,len(sessInd)), np.nanmean(np.array([blocksStateRight,blocksStateLeft]),axis=0), color='black',label='mean')
     axes.legend()
+    axes.set_xlim(0,len(sessInd)+1)
     axes.axhline(0.5,color='gray',linestyle='dashed')
 
 from datetime import date, datetime, timedelta

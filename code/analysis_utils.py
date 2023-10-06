@@ -473,8 +473,17 @@ def get_design_biased_blocks(dfAll, subject, sessInd, sessStop):
                         biasedBlockTrials[t] = -1
                 else:
                     biasedBlockTrials[t]=biasedBlockTrials[t-1]
-    return biasedBlockTrials, biasedBlockStartInd, biasedBlockSession
-
+    
+    # finding first block session
+    blockSessions = [x for [x] in np.argwhere(biasedBlockSession==1)]
+    z = 0
+    while 1>0:
+        if (blockSessions[z]+1 in blockSessions): # check for outlier single blocks
+            firstBlockSession = blockSessions[z]
+            break
+        else:
+            z += 1
+    return biasedBlockTrials, biasedBlockStartInd, biasedBlockSession, firstBlockSession
 
 # # OLD SPLITTING DATA FUNCTION
 # def old_split_data(x, y, sessInd, folds=4, blocks=10, random_state=1):

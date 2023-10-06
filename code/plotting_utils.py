@@ -267,18 +267,20 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
     '''
     K = gamma.shape[1]
     choiceHard = np.argmax(gamma, axis=1)
-    count = np.zeros((len(sessInd)-1,3))
+    count = np.zeros((len(sessInd)-1,K))
     for sess in range(0,len(sessInd)-1):
         for k in range(0,K):
             count[sess,k] = np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0]/(sessInd[sess+1]-sessInd[sess]) * 100
     for k in range(0,K):
-        axes.plot(range(0,len(sessInd)-1), count[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+        axes.plot(range(1,len(sessInd)), count[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
     axes.set_ylabel('% trial occupancy')
     axes.set_xlabel('sessions')
     axes.set_ylim(0,100)
     axes.legend(loc='upper right')
 
-def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, colors=colorsStates):
+    return count
+
+def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, firstBlockSession=None, colors=colorsStates):
     '''   
     function that plotts animal's task accuracy within each state across sessions
     '''
@@ -290,13 +292,20 @@ def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, col
             if (correctSide[t] == y[t]):
                 correct[session, stateHard[t]] += 1
         for k in range(0,K):
-            correct[session, k] = correct[session, k] / np.where(stateHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
+            if (np.where(stateHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] == 0):
+                correct[session, k] = np.nan
+            else:
+                correct[session, k] = correct[session, k] / np.where(stateHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
     for k in range(0,K):
-        axes.plot(correct[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+        axes.plot(range(1,len(sessInd)), correct[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
     axes.set_ylim(0,100)
     axes.set_ylabel('% task accuracy ')
     axes.set_xlabel('session')
     axes.legend(loc='lower right')
+    if (firstBlockSession is not None):
+        axes.axvline(firstBlockSession+1, color='gray', zorder=0)
+
+    return correct
 
 def barplot_task_accuracy(gamma, y, correctSide, sessInd, axes, session='all', colors=colorsStates):
     K = gamma.shape[1]
@@ -349,6 +358,8 @@ def plot_aligned_fraction_blocks_state(gamma, sessInd, biasedBlockTrials, biased
     axes.legend()
     axes.set_xlim(0,len(sessInd)+1)
     axes.axhline(0.5,color='gray',linestyle='dashed')
+
+    return blocksStateRight, blocksStateLeft
 
 from datetime import date, datetime, timedelta
 def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):

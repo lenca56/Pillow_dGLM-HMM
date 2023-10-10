@@ -227,9 +227,8 @@ def fit_eval_CV_multiple_alphas(K, x, y, sessInd, presentTrain, presentTest, alp
     allpi[len(alphaList)] = np.ones((K))/K    
     allW[len(alphaList)] = np.copy(dglmhmmW)
     
-    # evaluate 
+    # evaluate dGLMHMM1 fit
     testLl[len(alphaList)], testAccuracy[len(alphaList)] = dGLM_HMM2.evaluate(x, y, sessInd, presentTest, allP[len(alphaList)], allpi[len(alphaList)], allW[len(alphaList)], sortStates=False)
-
 
     for indAlpha in range(len(alphaList)-1,-1,-1): 
 

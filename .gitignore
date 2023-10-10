@@ -2,10 +2,11 @@ figures/**
 figures_M1/**
 *.csv
 *.npy
+*.npz
 data/**
-data_old/**
 data_M1/**
-data_falkner/**
+data_old/**
+data_IBL/**
 logs/**
 *.pkl
 *.pickle

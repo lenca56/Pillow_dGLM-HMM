@@ -677,7 +677,7 @@ class dGLM_HMM2():
         function that gives test log-like and test accuracy with forward pass using all data!
         '''
         N = x.shape[0]
-        Ntest = presentTest.sum() # number of trials in test
+        Ntest = int(presentTest.sum()) # number of trials in test
 
         if (sortStates==True):
             sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
@@ -694,7 +694,6 @@ class dGLM_HMM2():
         gamma, _ = self.posteriorLatents(y, present, p, phi, alpha, beta, ct, sessInd[:-1])
                 
         llTest = np.sum(np.log(ct[np.argwhere(presentTest==1)])) / Ntest # average test log-likelihood per trial
-
         gammaTest = gamma[np.argwhere(presentTest==1)].reshape((Ntest, self.k))
         phiTest = phi[np.argwhere(presentTest==1)].reshape((Ntest, self.k, self.c))
         yTest = y[np.argwhere(presentTest==1)].reshape((Ntest,))

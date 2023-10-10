@@ -15,7 +15,9 @@ import os
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject'])
-splitFolds=5
+subjectsWitten.remove('ibl_witten_02')
+subjectsWitten.remove('ibl_witten_03')
+splitFolds = 5
 
 df = pd.DataFrame(columns=['subject','K','fold']) # in total z=0,219
 z = 0
@@ -41,6 +43,7 @@ bestSigma = 1 # verified from fitting multiple sigmas
 priorDirP = None
 fit_init_states = False
 
+K = 3
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 

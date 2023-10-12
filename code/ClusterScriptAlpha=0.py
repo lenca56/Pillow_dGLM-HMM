@@ -19,7 +19,7 @@ subjectsWitten.remove('ibl_witten_02')
 subjectsWitten.remove('ibl_witten_03')
 
 # read from cluster array in order to get parallelizations
-idx = int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,8 inclusively
+idx = 0 #int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,8 inclusively
 subject = subjectsWitten[idx]
 K = 3
 
@@ -43,7 +43,7 @@ sess = len(sessInd)-1
 dglmhmmW = np.load(f'../data_IBL/{subject}/{subject}_bestW_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')
 globalP = np.load(f'../data_IBL/{subject}/{subject}_bestP_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')  
 
-inits = 21 # first one is constant P
+inits = 31 # first one is constant P
 trainLl = np.zeros((inits,maxiter))
 testLl = np.zeros((inits))
 testAccuracy = np.zeros((inits))
@@ -62,18 +62,19 @@ allW = np.zeros((inits,N,K,D,2))
 #     for s in range(0,sess):
 #         for k in range(0,K):
 #             initP[init,sessInd[s]:sessInd[s+1],k,:] = (globalP[k] + np.random.dirichlet(noiseDir[k])) /2
-# np.save(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10.npy', initP)
-initP = np.load(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10.npy')
-allP[0] = initP[0] # globalP repeated across sessions - constant
-allW[0] = np.copy(dglmhmmW)
+# np.save(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10_inits={inits}.npy', initP)
+initP = np.load(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10_inits={inits}.npy')
+
+# if not fitting dGLMHMM1
+# allP[0] = initP[0] # globalP repeated across sessions - constant
+# allW[0] = np.copy(dglmhmmW)
 
 pi = np.ones((K))/K    
 presentAll = np.ones((N))
 dGLM_HMM2 = dglm_hmm2.dGLM_HMM2(N,K,D,2)
 for init in range(0,inits):
     # fitting
-    if init !=0: # first init is only evaluated
-        allP[init], _, allW[init], trainLl[init] = dGLM_HMM2.fit(x, y, presentAll, initP[init], pi, dglmhmmW, sigma=reshapeSigma(bestSigma, K, D), alpha=bestAlpha, globalP=globalP, sessInd=sessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, fit_init_states=fit_init_states) 
+    allP[init], _, allW[init], trainLl[init] = dGLM_HMM2.fit(x, y, presentAll, initP[init], pi, dglmhmmW, sigma=reshapeSigma(bestSigma, K, D), alpha=bestAlpha, globalP=globalP, sessInd=sessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, fit_init_states=fit_init_states) 
 
     # evaluate 
     testLl[init], testAccuracy[init] = dGLM_HMM2.evaluate(x, y, sessInd, presentAll, allP[init], pi, allW[init], sortStates=False)

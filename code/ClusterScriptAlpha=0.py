@@ -15,8 +15,6 @@ import os
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject']).tolist()
-subjectsWitten.remove('ibl_witten_02')
-subjectsWitten.remove('ibl_witten_03')
 
 # read from cluster array in order to get parallelizations
 idx = 0 #int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,8 inclusively

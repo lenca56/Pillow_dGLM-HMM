@@ -17,7 +17,7 @@ dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject']).tolist()
 
 # read from cluster array in order to get parallelizations
-idx = 0 #int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,8 inclusively
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,10 inclusively
 subject = subjectsWitten[idx]
 K = 3
 

@@ -14,24 +14,23 @@ import os
 
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
-subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject'])
-splitFolds=5
-
-df = pd.DataFrame(columns=['subject','K','fold']) # in total z=0,219
+df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,179
 z = 0
-for subject in subjectsWitten:
-    for K in [1,2,3,4]:
-        for fold in range(splitFolds):
-            df.loc[z, 'subject'] = subject
-            df.loc[z, 'K'] = K
-            df.loc[z, 'fold'] = fold
-            z += 1
+labChosen = ['angelakilab','churchlandlab','wittenlab']
+for lab in labChosen:
+    subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
+    for subject in subjects:
+        for K in [1,2,3,4,5]:
+                df.loc[z, 'lab'] = lab
+                df.loc[z, 'subject'] = subject
+                df.loc[z, 'K'] = K
+                z += 1
 
 # read from cluster array in order to get parallelizations
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
+lab = df.loc[idx,'lab']
 subject = df.loc[idx,'subject']
 K = df.loc[idx,'K']
-fold = df.loc[idx,'fold']
 
 # setting hyperparameters
 sigmaList = [0] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
@@ -40,26 +39,29 @@ priorDirP = None
 maxiter = 300
 splitFolds = 5
 fit_init_states = False
+splitFolds=5
 
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 
 # fitting for K = 1,2,3,4
-x, y, sessInd = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
+x, y, sessInd, _ = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) # NOT LOOKING AT FULL DATASET
 N = x.shape[0]
 presentTrain, presentTest = split_data(N, sessInd, folds=splitFolds, blocks=10, random_state=1)
 
 glmhmmW = np.load(f'../data_IBL/Best_sigma=0_allAnimals_D={D}_{K}-state_W.npy')
 glmhmmP = np.load(f'../data_IBL/Best_sigma=0_allAnimals_D={D}_{K}-state_P.npy')
 
+trainLl = np.zeros((splitFolds, len(sigmaList), maxiter))
+testLl = np.zeros((splitFolds, len(sigmaList)))
+testAccuracy = np.zeros((splitFolds, len(sigmaList)))
+allP = np.zeros((splitFolds, len(sigmaList), K, K))
+allW = np.zeros((splitFolds, len(sigmaList), N,K,D,2)) 
+
 # fitting
-P, pi, W, trainLl, testLl, testAccuracy = fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain[fold], presentTest[fold], sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states)
+for fold in range(0,splitFolds):    
+    allP[fold], _, allW[fold], trainLl[fold], testLl[fold], testAccuracy[fold] = fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain[fold], presentTest[fold], sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states)
                                                                 
 # saving
-np.save(f'../data_IBL/{subject}/{subject}_trainLl_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', trainLl)
-np.save(f'../data_IBL/{subject}/{subject}_testLl_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', testLl)
-np.save(f'../data_IBL/{subject}/{subject}_testAccuracy_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', testAccuracy)
-np.save(f'../data_IBL/{subject}/{subject}_P_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', P)
-if (fit_init_states==True):
-    np.save(f'../data_IBL/{subject}/{subject}_pi_{subject}_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', pi)
-np.save(f'../data_IBL/{subject}/{subject}_W_D={D}_{K}_state_fold-{fold}_sigmas1D_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}', W)
+np.savez(f'../data_IBL/{subject}/{subject}_ALL-PARAM_D={D}_{K}-state_multiple-sigmas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl=trainLl, allP=allP, allW=allW, testLl=testLl, testAccuracy=testAccuracy)
+

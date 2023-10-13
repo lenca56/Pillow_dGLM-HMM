@@ -14,13 +14,13 @@ import os
 
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
-df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,179
+df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,143
 z = 0
 labChosen = ['angelakilab','churchlandlab','wittenlab']
 for lab in labChosen:
     subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
     for subject in subjects:
-        for K in [1,2,3,4,5]:
+        for K in [1,2,3,4]:
                 df.loc[z, 'lab'] = lab
                 df.loc[z, 'subject'] = subject
                 df.loc[z, 'K'] = K

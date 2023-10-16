@@ -17,18 +17,18 @@ dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,143
 z = 0
 labChosen = ['angelakilab','churchlandlab','wittenlab']
-for lab in labChosen:
-    subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
-    for subject in subjects:
-        for K in [1,2,3,4]:
-                df.loc[z, 'lab'] = lab
-                df.loc[z, 'subject'] = subject
-                df.loc[z, 'K'] = K
-                z += 1
-
+subjectsRemaining = ['IBL-T3','CSHL_001','CSHL_002','CSHL_005','CSHL_007','CSHL_014','CSHL_015','ibl_witten_04','ibl_witten_05','ibl_witten_06','ibl_witten_07','ibl_witten_12','ibl_witten_13','ibl_witten_15','ibl_witten_16','NYU-01','NYU-04','NYU-06']
+# for lab in labChosen:
+    # subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
+for subject in subjectsRemaining: #subjects: when fitting all animals
+    for K in [1,2,3,4]:
+        # df.loc[z, 'lab'] = lab
+        df.loc[z, 'subject'] = subject
+        df.loc[z, 'K'] = K
+        z += 1
 # read from cluster array in order to get parallelizations
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
-lab = df.loc[idx,'lab']
+# lab = df.loc[idx,'lab']
 subject = df.loc[idx,'subject']
 K = df.loc[idx,'K']
 

@@ -77,4 +77,4 @@ for init in range(0,inits):
     # evaluate 
     testLl[init], testAccuracy[init] = dGLM_HMM2.evaluate(x, y, sessInd, presentAll, allP[init], pi, allW[init], sortStates=False)
                                  
-np.savez(f'../data_IBL/{subject}/{subject}_ALL-PARAM_D={D}_{K}_state_alpha={bestAlpha}_multiple-initsP_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl=trainLl, allP=allP, allW=allW, testLl=testLl, testAccuracy=testAccuracy)
+np.savez(f'../data_IBL/{subject}/{subject}_ALL-PARAM_D={D}_{K}_state_alpha={bestAlpha}_multiple-initsP_inits={inits}_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl=trainLl, allP=allP, allW=allW, testLl=testLl, testAccuracy=testAccuracy)

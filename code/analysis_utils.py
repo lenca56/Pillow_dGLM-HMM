@@ -219,7 +219,7 @@ def fit_eval_CV_multiple_alphas(K, x, y, sessInd, presentTrain, presentTest, alp
     dGLM_HMM2 = dglm_hmm2.dGLM_HMM2(N,K,D,C)
 
     if (dglmhmmW is None or globalP is None): # fitting dGLM-HMM1 where only weights are varying
-        raise Exception("dglmhmmW AND  globalPneed to be given from dGLM-HMM1 parameter fitting of best sigma")
+        raise Exception("dglmhmmW AND  globalP need to be given from dGLM-HMM1 parameter fitting of best sigma")
     if (bestSigma is None): # fitting dGLM-HMM1 where only weights are varying
         raise Exception("bestSigma need to be given from dGLM-HMM1 fitting of best sigma value")
     
@@ -477,6 +477,9 @@ def get_design_biased_blocks(dfAll, subject, sessInd, sessStop):
     blockSessions = [x for [x] in np.argwhere(biasedBlockSession==1)]
     z = 0
     while 1>0:
+        if (blockSessions == []):
+            firstBlockSession = np.nan
+            break
         if (blockSessions[z]+1 in blockSessions): # check for outlier single blocks
             firstBlockSession = blockSessions[z]
             break

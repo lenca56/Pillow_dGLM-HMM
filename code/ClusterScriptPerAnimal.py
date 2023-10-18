@@ -39,7 +39,6 @@ priorDirP = None
 maxiter = 300
 splitFolds = 5
 fit_init_states = False
-splitFolds=5
 
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting

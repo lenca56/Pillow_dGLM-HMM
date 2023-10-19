@@ -16,7 +16,7 @@ ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,143
 z = 0
-labChosen = ['wittenlab','angelakilab'] #['angelakilab','churchlandlab','wittenlab']
+labChosen = ['churchlandlab'] #['angelakilab','churchlandlab','wittenlab']
 #subjectsRemaining = ['IBL-T3','CSHL_001','CSHL_002','CSHL_005','CSHL_007','CSHL_014','CSHL_015','ibl_witten_04','ibl_witten_05','ibl_witten_06','ibl_witten_07','ibl_witten_12','ibl_witten_13','ibl_witten_15','ibl_witten_16','NYU-01','NYU-04','NYU-06']
 for lab in labChosen:
     subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
@@ -62,5 +62,5 @@ for fold in range(0,splitFolds):
     allP[fold], _, allW[fold], trainLl[fold], testLl[fold], testAccuracy[fold] = fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain[fold], presentTest[fold], sigmaList=sigmaList, maxiter=maxiter, glmhmmW=glmhmmW, glmhmmP=glmhmmP, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states)
                                                                 
 # saving
-np.savez(f'../data_IBL/{subject}/{subject}_ALL-PARAM_D={D}_{K}-state_multiple-sigmas_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl=trainLl, allP=allP, allW=allW, testLl=testLl, testAccuracy=testAccuracy)
+np.savez(f'../data_IBL/{subject}/{subject}_ALL-PARAM_D={D}_{K}-state_multiple-sigmas_priorDirP={priorDirP}_L2penaltyW={L2penaltyW}_untilSession{sessStop}', trainLl=trainLl, allP=allP, allW=allW, testLl=testLl, testAccuracy=testAccuracy)
 

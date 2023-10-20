@@ -16,7 +16,7 @@ ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 df = pd.DataFrame(columns=['lab','subject','K']) # in total z=0,143
 z = 0
-labChosen = ['churchlandlab'] #['angelakilab','churchlandlab','wittenlab']
+labChosen = ['angelakilab','wittenlab'] #['angelakilab','churchlandlab','wittenlab']
 #subjectsRemaining = ['IBL-T3','CSHL_001','CSHL_002','CSHL_005','CSHL_007','CSHL_014','CSHL_015','ibl_witten_04','ibl_witten_05','ibl_witten_06','ibl_witten_07','ibl_witten_12','ibl_witten_13','ibl_witten_15','ibl_witten_16','NYU-01','NYU-04','NYU-06']
 for lab in labChosen:
     subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
@@ -35,7 +35,7 @@ K = df.loc[idx,'K']
 # setting hyperparameters
 sigmaList = [0] + [10**x for x in list(np.arange(-3,1,0.5,dtype=float))] + [10**x for x in list(np.arange(1,4,1,dtype=float))]
 L2penaltyW = 1
-priorDirP = [10,1]
+priorDirP = [100,10]
 maxiter = 300
 splitFolds = 5
 fit_init_states = False

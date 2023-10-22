@@ -14,23 +14,25 @@ import os
 
 ibl_data_path = '../data_IBL'
 dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
-subjectsWitten = np.unique(dfAll[dfAll['lab'] == 'wittenlab']['subject']).tolist()
-
+labChosen =  ['angelakilab','churchlandlab','wittenlab']
+subjectsAll = []
+for lab in labChosen:
+    subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
+    subjectsAll = subjectsAll + subjects
 # read from cluster array in order to get parallelizations
-idx = int(os.environ["SLURM_ARRAY_TASK_ID"]) # 0,10 inclusively
-subject = subjectsWitten[idx]
-K = 3
+idx = 0 # int(os.environ["SLURM_ARRAY_TASK_ID"]) # idx=0,35 inclusively
+subject = subjectsAll[idx]
 
 # setting hyperparameters
-alpha = 0
 L2penaltyW = 1
 maxiter = 200
 bestSigma = 1 # verified from fitting multiple sigmas
-priorDirP = None
+priorDirP = [100,10]
 fit_init_states = False
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
-bestAlpha = 0 # found by cross-validation
+bestAlpha = 2 # found by cross-validation
+K = 3
 
 # fitting for K = 1,2,3,4
 x, y, sessInd, _ = get_mouse_design(dfAll, subject, sessStop=sessStop, D=D) 
@@ -38,29 +40,29 @@ N = x.shape[0]
 sess = len(sessInd)-1
 
 # parameters for best model in dGLM-HMM1 (only weights varying)
-dglmhmmW = np.load(f'../data_IBL/{subject}/{subject}_bestW_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')
-globalP = np.load(f'../data_IBL/{subject}/{subject}_bestP_D={D}_{K}_state_CV_sigma=1_L2penaltyW={L2penaltyW}_priorDirP={priorDirP}_untilSession{sessStop}.npy')  
-
-inits = 31 # first one is constant P
+globalP = np.load(f'../data_IBL/{subject}/{subject}_bestP_D={D}_{K}_state_CV_sigma=1_priorDirP={priorDirP}_L2penaltyW={L2penaltyW}_untilSession{sessStop}.npy')
+dglmhmmW  = np.load(f'../data_IBL/{subject}/{subject}_bestW_D={D}_{K}_state_CV_sigma=1_priorDirP={priorDirP}_L2penaltyW={L2penaltyW}_untilSession{sessStop}.npy')
+    
+inits = 21 # first one is constant P
 trainLl = np.zeros((inits,maxiter))
 testLl = np.zeros((inits))
 testAccuracy = np.zeros((inits))
 allP = np.zeros((inits,N,K,K))
 allW = np.zeros((inits,N,K,D,2))
 
-# # creating matrix for initializations of P from globalP with addedd noise
-# initP = np.zeros((inits,N,K,K))
-# noiseDir = np.ones((K,K))
-# alpha = 10
-# for k in range(0,K):
-#     noiseDir[k,k] = alpha # diagonal element
-# # first init is just constant transition matrix P (from dGLMHMM1)
-# initP[0] = reshapeP_M1_to_M2(globalP, N) 
-# for init in range(1,inits):
-#     for s in range(0,sess):
-#         for k in range(0,K):
-#             initP[init,sessInd[s]:sessInd[s+1],k,:] = (globalP[k] + np.random.dirichlet(noiseDir[k])) /2
-# np.save(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10_inits={inits}.npy', initP)
+# creating matrix for initializations of P from globalP with addedd noise
+initP = np.zeros((inits,N,K,K))
+noiseDir = np.ones((K,K))
+alpha = 10
+for k in range(0,K):
+    noiseDir[k,k] = alpha # diagonal element
+# first init is just constant transition matrix P (from dGLMHMM1)
+initP[0] = reshapeP_M1_to_M2(globalP, N) 
+for init in range(1,inits):
+    for s in range(0,sess):
+        for k in range(0,K):
+            initP[init,sessInd[s]:sessInd[s+1],k,:] = (globalP[k] + np.random.dirichlet(noiseDir[k]))/2
+np.save(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10_inits={inits}.npy', initP)
 initP = np.load(f'../data_IBL/{subject}/{subject}_initP-noisy-alpha=10_inits={inits}.npy')
 
 # if not fitting dGLMHMM1

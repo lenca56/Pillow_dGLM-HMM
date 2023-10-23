@@ -20,7 +20,7 @@ for lab in labChosen:
     subjects = np.unique(dfAll[dfAll['lab'] == lab]['subject']).tolist()
     subjectsAll = subjectsAll + subjects
 # read from cluster array in order to get parallelizations
-idx = 0 # int(os.environ["SLURM_ARRAY_TASK_ID"]) # idx=0,35 inclusively
+idx = int(os.environ["SLURM_ARRAY_TASK_ID"]) # idx=0,35 inclusively
 subject = subjectsAll[idx]
 
 # setting hyperparameters

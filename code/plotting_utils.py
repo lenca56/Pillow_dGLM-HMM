@@ -16,10 +16,11 @@ colormap = sns.color_palette("viridis")
 colors_dark = ['darkblue','darkred','darkgreen','darkgoldenrod']
 colors_light = ['royalblue','indianred','limegreen','gold']
 colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',"#2369BD","#A9373B",'#99CC66','#59C3C3','#9593D9']]
-colorsStates = ['darkorange','darkblue','forestgreen','purple']
+#colorsStates = ['darkorange','darkblue','forestgreen','purple']
+colorsStates = ['tab:orange','tab:blue', 'tab:green','tab:red']
 myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
 
-def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_dark, save_fig=False, sortedStateInd=None):
+def plotting_weights(w, sessInd, axes, trueW=None, title='', colors=colorsStates, save_fig=False, sortedStateInd=None):
     ''' 
     Parameters
     __________
@@ -37,8 +38,8 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_
 
     sess = len(sessInd)-1
     for i in range(0,w.shape[1]):
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',label=f'state {i+1} sensory')
-        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colors_light[i], marker='o', label=f'state {i+1} bias')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colorsStates[i],marker='o',label=f'state {i+1} sensory')
+        axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colorsStates[i], marker='s',label=f'state {i+1} bias')
 
     axes.set_title(title)
     axes.set_xticks(range(1,sess+1))
@@ -48,13 +49,13 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', colorsState=colors_
 
     if(trueW is not None):
         for i in range(0,trueW.shape[1]):
-            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,1,1],color=colors_dark[i],marker='o',linestyle='dashed', label=f'true sensory {i+1}')
-            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,0,1],color=colors_light[i],marker='o',linestyle='dashed', label=f'true bias {i+1}')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,1,1],color=colorsStates[i],marker='o',linestyle='dashed', label=f'true sensory {i+1}')
+            axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,0,1],color=colorsStates[i], marker='s',linestyle='dashed', label=f'true bias {i+1}')
     
     if(save_fig==True):
         plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewidth=5, linestyle='-o', title='', save_fig=False, colorsStates=colors_dark, sortedStateInd=None):
+def plotting_self_transition_probabilities(p, sessInd, axes, linewidth=5, linestyle='-o', title='', colorsStates=colorsStates, labels=[f'state {i+1}' for i in range(0,5)], sortedStateInd=None, save_fig=False):
     ''' 
     
     Parameters
@@ -69,16 +70,12 @@ def plotting_self_transition_probabilities(p, sessInd, axes, trueP=None, linewid
 
     sess = len(sessInd)-1
     for i in range(0,p.shape[1]):
-        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colorsStates[i], label=f'state {i+1} recovered')
-        if(trueP is not None):
-            axes.plot(range(1,sess+1),trueP[sessInd[:-1],i,i],color=colorsStates[i],linestyle='dashed',label=f'state {i+1} true')
-    
-
+        axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colorsStates[i], label=labels[i], zorder=p.shape[1]-i)
+        
     axes.set_title(title)
     axes.set_ylabel("self-transition probabilities")
     axes.set_ylim(0.6,1)
     axes.set_xlabel('session')
-    axes.legend(loc='lower right')
     
     if(save_fig==True):
         plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}', bbox_inches='tight', dpi=400, format='eps')
@@ -205,7 +202,7 @@ def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortedStateInd=None)
     axes.set_xticks(np.arange(0,len(xlabels)))
     axes.set_xticklabels(xlabels,rotation=90)
 
-def plot_transition_matrix(P, title='Recovered', sortedStateInd=None):
+def plot_transition_matrix(P, title='Recovered transition matrix', sortedStateInd=None):
     ''' 
     function that plots heatmap of transition matrix (assumed constant)
 
@@ -220,12 +217,13 @@ def plot_transition_matrix(P, title='Recovered', sortedStateInd=None):
     if (sortedStateInd is not None):
         P = P[sortedStateInd,:][:,sortedStateInd]
 
-    K = P.shape[0]
-    s = sns.heatmap(np.round(P,3),annot=True,cmap='BuPu', fmt='g')
-    s.set(xlabel='state at time t+1', ylabel='state at time t', title=f'{title} transition matrix P', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
-    fig = s.get_figure()
+    plt.figure(figsize=(5, 4), dpi=400)
+    K = P.shape[0] # 
+    s = sns.heatmap(np.round(P,3),annot=True, vmin=-0.6, vmax=1,cmap='bone', fmt='g', linewidths=1, linecolor='black',clip_on=False, cbar=False)
+    s.set(xlabel='state at time t+1', ylabel='state at time t', title=f'{title}', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
+    
 
-def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30]):
+def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30], linewidth=1):
     s = len(sessions)
     K = gamma.shape[1]
     for i in range(0,s):
@@ -233,8 +231,8 @@ def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30]):
         axes[-1].set_xlabel('trials')
         axes[i].set_ylabel('posterior latent')
         for k in range(0,K):
-            axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}')
-        axes[i].legend()
+            axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}', linewidth=linewidth)
+        axes[i].legend(loc = 'center left', bbox_to_anchor=(0.99, 0.4))
 
 def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'session'):
     ''' 
@@ -254,14 +252,14 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'sessi
     axes.set_title(title)
     axes.set_ylim(-0.05,1.05)
     axes.set_ylabel('P(Right)')
-    axes.set_xlabel('delta stimulus')
+    axes.set_xlabel('stimulus')
 
     for k in range(K-1,-1,-1):
         axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}')
 
     axes.legend(loc='lower right')
 
-def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
+def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates, linewidth=3):
     ''' 
     funcion that plots percentage of trials in each state across sessions
     '''
@@ -272,7 +270,7 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
         for k in range(0,K):
             count[sess,k] = np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0]/(sessInd[sess+1]-sessInd[sess]) * 100
     for k in range(0,K):
-        axes.plot(range(1,len(sessInd)), count[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+        axes.plot(range(1,len(sessInd)), count[:,k], color=colors[k], linewidth=linewidth, label=f'state {k+1}')
     axes.set_ylabel('% trial occupancy')
     axes.set_xlabel('sessions')
     axes.set_ylim(0,100)
@@ -280,7 +278,7 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates):
 
     return count
 
-def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, firstBlockSession=None, colors=colorsStates):
+def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, firstBlockSession=None, colors=colorsStates, linewidth=3):
     '''   
     function that plotts animal's task accuracy within each state across sessions
     '''
@@ -297,7 +295,7 @@ def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, fir
             else:
                 correct[session, k] = correct[session, k] / np.where(stateHard[sessInd[session]:sessInd[session+1]] == k)[0].shape[0] * 100
     for k in range(0,K):
-        axes.plot(range(1,len(sessInd)), correct[:,k], color=colors[k], linewidth=3, label=f'state {k+1}')
+        axes.plot(range(1,len(sessInd)), correct[:,k], color=colors[k], linewidth=linewidth, label=f'state {k+1}')
     axes.set_ylim(0,100)
     axes.set_ylabel('% task accuracy ')
     axes.set_xlabel('session')

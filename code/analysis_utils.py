@@ -393,6 +393,44 @@ def find_top_init_plot_loglikelihoods(ll, maxdiff, ax=None,startix=5, plot=True)
     
     return bestInd, final_lls, np.where(ll_diffs < maxdiff)[0] # return indices of best (matching) fits
 
+def IBL_performance(dfAll, subject, plot=False):
+    data = dfAll[dfAll['subject']==subject]   # Restrict data to the subject specified
+
+    # keeping first 40 sessions
+    dateToKeep = np.unique(data['date'])
+    df = pd.DataFrame(data.loc[data['date'].isin(list(dateToKeep))])
+
+    contrastLeft=np.array(df['contrastLeft'])
+    contrastRight=np.array(df['contrastRight'])
+    correct=np.array(df['feedbackType'])
+    dates=np.array(df['date'])
+
+    easy_trials = (contrastLeft > 0.45).astype(int) | (contrastRight > 0.45).astype(int)
+    easy_perf = []
+    perf = []
+    length = []
+    for date in np.unique(dates):
+        d = df[df['date']==date]
+        for sess in np.unique(d['session']):
+            session_trials = (np.array(df['session']==sess) * np.array(df['date']==date)).astype(int)
+            inds = (session_trials * easy_trials).astype(bool)
+            easy_perf += [np.average(correct[inds])]
+            perf += [np.average(correct[session_trials.astype(bool)])]
+    
+    if (plot==True):
+        fig, axes = plt.subplots(1, figsize = (13,5), sharex=True, dpi=400) 
+        axes.plot(range(1,easy_perf.shape[0]+1), easy_perf, color="black", linewidth=3, label='easy trials') # only look at first 25 days
+        axes.plot(range(1,perf.shape[0]+1), perf, color="gray", linewidth=3, label='all trials')
+        axes.set_ylabel('task accuracy')
+        axes.set_xlabel('session')
+        axes.set_yticks([0.4,0.6,0.8,1.0])
+        axes.set_ylim(0.2,1.0)
+        axes.axhline(0.5, color="black", linestyle="--", lw=1, alpha=0.3, zorder=0)
+        axes.set_xlim(0,perf.shape[0]+2)
+        axes.spines[['right', 'top']].set_visible(False)
+        axes.legend()
+    return np.array(easy_perf), np.array(perf)
+
 def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
     ''' 
     function to give design matrix x and output vector y for a given subject until session sessStpo
@@ -460,7 +498,7 @@ def get_design_biased_blocks(dfAll, subject, sessInd, sessStop):
     biasedBlockStartInd = np.zeros((sessInd[-1])) # first indices of biased blocks are marked by -1,1 depending on bias
     biasedBlockTrials = np.zeros((sessInd[-1])) # trials within biased blocks are marked by -1,1 depending on bias
     for s in range(0, len(sessInd)-1):
-        if (set(np.unique(pStimLeft[sessInd[s]:sessInd[s+1]])) <= set([0.2,0.5,0.8])): # biased block sessions
+        if (set(np.unique(pStimLeft[sessInd[s]:sessInd[s+1]])) == set([0.2,0.5,0.8])): # biased block sessions
             biasedBlockSession[s] = 1
             for t in range(sessInd[s]+1, sessInd[s+1]): 
                 if (pStimLeft[t] != pStimLeft[t-1]): # shift in biased blocks

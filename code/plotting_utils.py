@@ -359,6 +359,16 @@ def plot_aligned_fraction_blocks_state(gamma, sessInd, biasedBlockTrials, biased
 
     return blocksStateRight, blocksStateLeft
 
+def distribution_most_likely_state(gamma, sessInd, axes, linewidth=2):
+    maxState = gamma.argmax(axis=1)
+    probMaxSession = np.zeros((len(sessInd)-1))
+    for sess in range(0,len(sessInd)-1):
+        for t in range(sessInd[sess],sessInd[sess+1]):
+            probMaxSession[sess] += gamma[t,maxState[t]]
+        probMaxSession[sess] = probMaxSession[sess] / (sessInd[sess+1]-sessInd[sess])
+    axes.plot(range(1,len(sessInd)), probMaxSession, color='black', linewidth=linewidth)
+    return probMaxSession
+
 from datetime import date, datetime, timedelta
 def IBL_plot_performance(dfAll, subject, axes, sessStop=-1):
     # code from Psytrack

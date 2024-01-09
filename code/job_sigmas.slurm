@@ -17,4 +17,4 @@ module purge
 module load anaconda3/2023.3
 conda activate dglmhmm
 
-python ClusterScriptPerAnimal.py
+python ClusterScriptdGLMH-HMM1.py

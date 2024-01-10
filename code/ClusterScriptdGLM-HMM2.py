@@ -38,7 +38,7 @@ maxiter = 200
 bestSigma = 1 # verified from fitting multiple sigmas
 priorDirP = [100,10] # to read dGLMHMM1 model
 fit_init_states = False
-K = 3
+K = 1 # 3
 D = 4 # number of features
 sessStop = -1 # last session to use in fitting
 

@@ -280,7 +280,7 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates, lin
 
 def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, firstBlockSession=None, colors=colorsStates, linewidth=3):
     '''   
-    function that plotts animal's task accuracy within each state across sessions
+    function that plotts animal's task accuracy within each state across sessions, by hard assigning states and counting correct for animal
     '''
     K = gamma.shape[1]
     stateHard = np.argmax(gamma, axis=1)
@@ -306,6 +306,9 @@ def plot_task_accuracy_states_sessions(gamma, y, correctSide, sessInd, axes, fir
     return correct
 
 def barplot_task_accuracy(gamma, y, correctSide, sessInd, axes, session='all', colors=colorsStates):
+    ''' 
+    accuracy in each state by hard asssigning states and counting times correct for animal
+    '''
     K = gamma.shape[1]
     stateHard = np.argmax(gamma, axis=1)
     correct = np.zeros((len(sessInd)-1, K))

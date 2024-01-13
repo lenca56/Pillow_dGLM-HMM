@@ -431,6 +431,38 @@ def IBL_performance(dfAll, subject, plot=False):
         axes.legend()
     return np.array(easy_perf), np.array(perf)
 
+def accuracy_states_sessions(gamma, phi, y, correctSide, sessInd):
+    '''   
+    function that probabilistically computes accuracy for each state and overall (no hard assigning)
+
+    P(y_t = correct choice | x_t) = sum over k of p(y_t=correct choice |x_t, z_t=k) * p(z_t=k)
+
+    '''
+    K = gamma.shape[1]
+    N = y.shape[0]
+    p_correct_states = np.zeros((N, K))
+    p_correct = np.zeros(N)
+    p_correct_states_sessions = np.zeros((len(sessInd)-1, K))
+    p_correct_sessions = np.zeros((len(sessInd)-1))
+    for session in range(0, len(sessInd)-1):
+        for t in range(sessInd[session],sessInd[session+1]):
+            for k in range(0,K):
+                p_correct_states[t, k] = phi[t, k, correctSide[t]]
+            p_correct[t] = p_correct_states[t, :] @ gamma[t]
+        p_correct_states_sessions[session] = np.mean(p_correct_states[sessInd[session]:sessInd[session+1]], axis=0)
+        p_correct_sessions[session] = np.mean(p_correct[sessInd[session]:sessInd[session+1]], axis=0)
+    
+    return 100*p_correct_sessions, 100*p_correct_states_sessions
+
+def soft_occupancy_states_sessions(gamma, sessInd):
+    K = gamma.shape[1]
+    p_occ_states_sessions = np.zeros((len(sessInd)-1, K))
+    for session in range(0, len(sessInd)-1):
+        for k in range(0,K):
+            p_occ_states_sessions[session, k] = np.mean(gamma[sessInd[session]:sessInd[session+1], k])    
+   
+    return p_occ_states_sessions
+
 def get_mouse_design(dfAll, subject, sessStop=-1, D=4):
     ''' 
     function to give design matrix x and output vector y for a given subject until session sessStpo

@@ -706,6 +706,36 @@ class dGLM_HMM2():
         accuracyTest = (Ntest - Nwrong) / Ntest * 100 # correct predictions on observed y
         
         return llTest, accuracyTest #, llTest1
+    
+    def evaluate_per_session(self, x, y, sessInd, presentTest, p, pi, w, sortStates=False):
+        ''' 
+        function that gives test log-like and test accuracy with forward pass using all data!
+        '''
+        N = x.shape[0]
+        Ntest = int(presentTest.sum()) # number of trials in test
+
+        if (sortStates==True):
+            sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
+            w = w[:,sortedStateInd,:,:]
+            p = p[:,sortedStateInd,:][:,:,sortedStateInd]
+            pi = pi.reshape((self.k,))
+            pi = pi[sortedStateInd]
+            
+        present = np.ones((N))
+        phi = self.observation_probability(x=x, w=w)
+
+        alpha, ct, _ = self.forward_pass(y, present, p, pi, phi, sessInd[:-1])
+        beta = self.backward_pass(y, present, p, phi, ct, sessInd[:-1])
+
+        llTestSessions = np.zeros((len(sessInd)-1))
+        for s in range(0, len(sessInd)-1):
+            count = 0
+            for t in range(sessInd[s],sessInd[s+1]):
+                if presentTest[t] == 1:
+                    llTestSessions[s] += np.log(ct[t]) 
+                    count += 1 
+            llTestSessions[s] = llTestSessions[s]/count
+        return llTestSessions
 
     def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):
         if (sortedStateInd is not None):

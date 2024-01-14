@@ -452,7 +452,8 @@ def accuracy_states_sessions(gamma, phi, y, correctSide, sessInd):
         p_correct_states_sessions[session] = np.mean(p_correct_states[sessInd[session]:sessInd[session+1]], axis=0)
         p_correct_sessions[session] = np.mean(p_correct[sessInd[session]:sessInd[session+1]], axis=0)
     
-    return 100*p_correct_sessions, 100*p_correct_states_sessions
+    return 100 * p_correct, 100 * p_correct_states, 100 * p_correct_sessions, 100 * p_correct_states_sessions
+
 
 def soft_occupancy_states_sessions(gamma, sessInd):
     K = gamma.shape[1]

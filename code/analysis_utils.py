@@ -123,8 +123,10 @@ def fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain, presentTest, sig
     N = x.shape[0]
     D = x.shape[1]
     C = 2 # only looking at binomial classes
+    sess = len(sessInd) - 1
 
     trainLl = np.zeros((len(sigmaList), maxiter))
+    testLlSessions = np.zeros((len(sigmaList), sess))
     testLl = np.zeros((len(sigmaList)))
     testAccuracy = np.zeros((len(sigmaList)))
     allP = np.zeros((len(sigmaList), K, K))
@@ -158,9 +160,9 @@ def fit_eval_CV_multiple_sigmas(K, x, y, sessInd, presentTrain, presentTest, sig
             allP[indSigma], allpi[indSigma], allW[indSigma], trainLl[indSigma] = dGLM_HMM.fit(x, y, presentTrain, initP, initpi, initW, sigma=reshapeSigma(sigmaList[indSigma], K, D), sessInd=sessInd, maxIter=maxiter, tol=1e-3, L2penaltyW=L2penaltyW, priorDirP=priorDirP, fit_init_states=fit_init_states) 
         
         # evaluate 
-        testLl[indSigma], testAccuracy[indSigma] = dGLM_HMM.evaluate(x, y, sessInd, presentTest, allP[indSigma], allpi[indSigma], allW[indSigma], sortStates=False)
+        testLlSessions[indSigma], testLl[indSigma], testAccuracy[indSigma] = dGLM_HMM.evaluate(x, y, sessInd, presentTest, allP[indSigma], allpi[indSigma], allW[indSigma])
 
-    return allP, allpi, allW, trainLl, testLl, testAccuracy
+    return allP, allpi, allW, trainLl, testLlSessions, testLl, testAccuracy
 
 def fit_eval_CV_multiple_alphas(K, x, y, sessInd, presentTrain, presentTest, alphaList=[0, 1, 10, 100, 1000, 10000], maxiter=200, dglmhmmW=None, globalP=None, bestSigma=None, L2penaltyW=1, fit_init_states=False):
     ''' 

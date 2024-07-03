@@ -18,14 +18,13 @@ dfAll = pd.read_csv(ibl_data_path + '/Ibl_processed.csv')
 inits = 20
 D = 4
 
-df = pd.DataFrame(columns=['init','K', 'sign']) # in total z=0,159
+df = pd.DataFrame(columns=['init','K']) # in total z=0,159
 z = 0
 for init in range(0,inits):
     for K in [1,2,3,4]:
         for sign in [-1, +1]:
             df.loc[z, 'init'] = init
             df.loc[z, 'K'] = K
-            df.loc[z, 'sign'] = sign
             z += 1
 
 x = np.load(f'../data_IBL/X_allAnimals_D={D}.npy')
@@ -36,8 +35,6 @@ sessInd = np.load(f'../data_IBL/sessInd_allAnimals_D={D}.npy')
 idx = int(os.environ["SLURM_ARRAY_TASK_ID"])
 init = df.loc[idx,'init']
 K = df.loc[idx,'K']
-sign = df.loc[idx, 'sign']
-x[:,1] = sign * x[:,1] # if sign=1 then x = Right - Left, if sign=-1 then x = Left - Right
 
 N = x.shape[0]
 C=2

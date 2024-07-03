@@ -20,7 +20,7 @@ colorsFeatures = [['#FAA61A','indigo','#99CC66','#59C3C3','#9593D9'],['#FAA61A',
 colorsStates = ['tab:orange','tab:blue', 'tab:green','tab:red']
 myFeatures = [['bias','delta stimulus', 'previous choice', 'previous reward'],['bias','contrast left','contrast right', 'previous choice', 'previous reward']]
 
-def plotting_weights(w, sessInd, axes, trueW=None, title='', colors=colorsStates, save_fig=False, sortedStateInd=None):
+def plotting_weights(w, sessInd, axes, trueW=None, title='', colors=colorsStates, sortedStateInd=None, size=24):
     ''' 
     Parameters
     __________
@@ -41,21 +41,18 @@ def plotting_weights(w, sessInd, axes, trueW=None, title='', colors=colorsStates
         axes.plot(range(1,sess+1),w[sessInd[:-1],i,1,1],color=colorsStates[i],marker='o',label=f'state {i+1} sensory')
         axes.plot(range(1,sess+1),w[sessInd[:-1],i,0,1],color=colorsStates[i], marker='s',label=f'state {i+1} bias')
 
-    axes.set_title(title)
+    axes.set_title(title, size=size)
     axes.set_xticks(range(1,sess+1))
-    axes.set_ylabel("weights")
-    axes.set_xlabel('session')
+    axes.set_ylabel("weights", size=size-2)
+    axes.set_xlabel('session', size=size-2)
     axes.legend()
 
     if(trueW is not None):
         for i in range(0,trueW.shape[1]):
             axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,1,1],color=colorsStates[i],marker='o',linestyle='dashed', label=f'true sensory {i+1}')
             axes.plot(range(1,sess+1),trueW[sessInd[:-1],i,0,1],color=colorsStates[i], marker='s',linestyle='dashed', label=f'true bias {i+1}')
-    
-    if(save_fig==True):
-        plt.savefig(f'../figures/Weights_-{title}.png', bbox_inches='tight', dpi=400)
 
-def plotting_self_transition_probabilities(p, sessInd, axes, linewidth=5, linestyle='-o', title='', colorsStates=colorsStates, labels=[f'state {i+1}' for i in range(0,5)], sortedStateInd=None, save_fig=False):
+def plotting_self_transition_probabilities(p, sessInd, axes, linewidth=5, linestyle='-o', title='', colorsStates=colorsStates, labels=[f'state {i+1}' for i in range(0,5)], sortedStateInd=None, size=24):
     ''' 
     
     Parameters
@@ -73,14 +70,11 @@ def plotting_self_transition_probabilities(p, sessInd, axes, linewidth=5, linest
         axes.plot(range(1,sess+1),p[sessInd[:-1],i,i],linestyle, linewidth=linewidth, color=colorsStates[i], label=labels[i], zorder=p.shape[1]-i)
         
     axes.set_title(title)
-    axes.set_ylabel("self-transition probabilities")
+    axes.set_ylabel("self-transition probabilities", size=size-2)
     axes.set_ylim(0.6,1)
-    axes.set_xlabel('session')
-    
-    if(save_fig==True):
-        plt.savefig(f'../figures/TransitionMatrix_stickiness_-{title}', bbox_inches='tight', dpi=400, format='eps')
+    axes.set_xlabel('session', size=size-2)
 
-def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', alpha=1):
+def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', alpha=1, size=24):
     '''  
     function that plots test LL as a function of sigma 
 
@@ -102,12 +96,12 @@ def plot_testLl_CV_sigma(testLl, sigmaList, label, color, axes, linestyle='-o', 
     else:
         axes.scatter(np.log(sigmaList[0]), testLl[0], color=color, alpha=alpha)
         axes.set_xticks([np.log(sigmaListEven)],[f'{np.round(sigma, 1)}' for sigma in sigmaListEven])
-    axes.set_ylabel("Test LL (per trial)")
-    axes.set_xlabel("sigma")
+    axes.set_ylabel("Test LL (per trial)", size=size-2)
+    axes.set_xlabel("sigma", size=size-2)
     if (label is not None):
         axes.legend(loc='lower right')
 
-def plot_testLl_CV_alpha(testLl, alphaList, label, color, axes, linestyle='-o', alpha=1):
+def plot_testLl_CV_alpha(testLl, alphaList, label, color, axes, linestyle='-o', alpha=1, size=24):
     '''  
     function that plots test LL as a function of sigma 
 
@@ -119,16 +113,15 @@ def plot_testLl_CV_alpha(testLl, alphaList, label, color, axes, linestyle='-o', 
 
     '''
     axes.plot(np.log10(alphaList), testLl[:-1], linestyle, color=color, label=label, alpha=alpha)
-    axes.set_xlabel('alpha')
-    axes.set_ylabel('Test LL (per  trial)')
     alphaListEven = [alphaList[ind] for ind in range(0,len(alphaList),2)]
     axes.set_xticks(np.log10(alphaListEven),[f'{np.round(alpha,1)}' for alpha in alphaListEven])
-    axes.set_ylabel('Test log-like (per trial)')
-    axes.set_title('dGLM-HMM with varying transition matrix P')
+    axes.set_ylabel('Test log-like (per trial)', size=size-2)
+    axes.set_xlabel('alpha', size=size-2)
+    axes.set_title('dGLM-HMM with varying transition matrix P', size=size)
     if (label is not None):
         axes.legend(loc='upper right')
 
-def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', legend=True, sortedStateInd=None):
+def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linewidth=5, linestyle='-', legend=True, sortedStateInd=None, size=24):
 
     # permute weights 
     if (sortedStateInd is not None):
@@ -143,10 +136,10 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linew
         axes.axhline(0, alpha=0.3, color='black',linestyle='-')
         for d in range(0, D):
             axes.plot(range(1,sess+1),w[sessInd[:-1],0,d,1],color=colors[d],linewidth=linewidth,label=labels[d], alpha=0.8, linestyle=linestyle)
-        axes.set_ylabel("weights")
-        axes.set_xlabel('session')
+        axes.set_ylabel("weights", size=size-2)
+        axes.set_xlabel('session', size=size-2)
         axes.set_ylim(yLim)
-        axes.set_title(f'State 1')
+        axes.set_title(f'State 1', size=size)
         axes.legend()
     else:
         for k in range(0,K):
@@ -154,13 +147,13 @@ def plotting_weights_IBL(w, sessInd, axes, yLim, colors=None, labels=None, linew
             for d in range(0, D):
                 axes[k].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[d],linewidth=linewidth,label=labels[d], alpha=0.8, linestyle=linestyle)
             axes[k].set_ylim(yLim)
-            axes[k].set_ylabel("weights")
-            axes[k].set_title(f'State {k+1}')
+            axes[k].set_ylabel("weights", size=size-2)
+            axes[k].set_title(f'State {k+1}', size=size)
             if (legend==True):
                 axes[k].legend()
         axes[K-1].set_xlabel('session')
 
-def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', alpha=0.9, legend=True, sortedStateInd=None):
+def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]], colors=colorsStates, labels=myFeatures, linewidth=5, linestyle='-', alpha=0.9, legend=True, sortedStateInd=None, size=24):
     
     # permute weights 
     if (sortedStateInd is not None):
@@ -178,11 +171,11 @@ def plotting_weights_per_feature(w, sessInd, axes, yLim=[[-2.2,2.2],[-6.2,6.2]],
             else:
                 axes[d].plot(range(1,sess+1),w[sessInd[:-1],k,d,1],color=colors[k],linewidth=linewidth,label=None, alpha=alpha, linestyle=linestyle)
         axes[d].set_ylim(yLim[d])
-        axes[d].set_ylabel("weights")
+        axes[d].set_ylabel("weights", size=size-2)
         axes[d].set_title(f'{labels[d]}')
         if (legend==True):
             axes[d].legend(loc = 'center left', bbox_to_anchor=(0.99, 0.4))
-    axes[D-1].set_xlabel('session')
+    axes[D-1].set_xlabel('session', size=size-2)
 
 def plot_constant_weights(w, axes, xlabels, colors, sign=1, sortedStateInd=None):
     C = 2
@@ -223,18 +216,18 @@ def plot_transition_matrix(P, title='Recovered transition matrix', sortedStateIn
     s.set(xlabel='state at time t+1', ylabel='state at time t', title=f'{title}', xticklabels=range(1,K+1), yticklabels=range(1,K+1))
     
 
-def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30], linewidth=1):
+def plot_posteior_latent(gamma, sessInd, axes, sessions = [10,20,30], linewidth=1, size=24):
     s = len(sessions)
     K = gamma.shape[1]
     for i in range(0,s):
-        axes[i].set_title(f'session {sessions[i]+1}' )
-        axes[-1].set_xlabel('trials')
-        axes[i].set_ylabel('posterior latent')
+        axes[i].set_title(f'session {sessions[i]+1}', size=size)
+        axes[-1].set_xlabel('trials', size=size-2)
+        axes[i].set_ylabel('posterior latent', size=size-2)
         for k in range(0,K):
             axes[i].plot(np.arange(sessInd[sessions[i]+1]-sessInd[sessions[i]]), gamma[sessInd[sessions[i]]:sessInd[sessions[i]+1],k], color=colorsStates[k], label=f'state {k+1}', linewidth=linewidth)
         axes[i].legend(loc = 'center left', bbox_to_anchor=(0.99, 0.4))
 
-def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'session'):
+def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'session', linestyle='-', size=24):
     ''' 
     '''
     N = w.shape[0]
@@ -249,17 +242,17 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'sessi
     dGLMHMM = dglm_hmm1.dGLM_HMM1(N,K,D,C)
     phi = dGLMHMM.observation_probability(x, np.repeat(w[sessInd[session]][np.newaxis], N, axis=0)[:,:,:d,:])
 
-    axes.set_title(title)
+    axes.set_title(title, size=size)
     axes.set_ylim(-0.05,1.05)
-    axes.set_ylabel('P(Right)')
-    axes.set_xlabel('stimulus')
+    axes.set_ylabel('P(Right)', size=size-2)
+    axes.set_xlabel('stimulus', size=size-2)
 
     for k in range(K-1,-1,-1):
-        axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}')
+        axes.plot(np.linspace(-2,2,N), phi[:,k,0], color=colorsStates[k], linewidth=3, label=f'state {k+1}', linestyle=linestyle)
 
     axes.legend(loc='lower right')
 
-def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates, linewidth=3):
+def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates, linewidth=3, size=24):
     ''' 
     funcion that plots percentage of trials in each state across sessions
     '''
@@ -271,8 +264,8 @@ def plot_state_occupancy_sessions(gamma, sessInd, axes, colors=colorsStates, lin
             count[sess,k] = np.where(choiceHard[sessInd[sess]:sessInd[sess+1]] == k)[0].shape[0]/(sessInd[sess+1]-sessInd[sess]) * 100
     for k in range(0,K):
         axes.plot(range(1,len(sessInd)), count[:,k], color=colors[k], linewidth=linewidth, label=f'state {k+1}')
-    axes.set_ylabel('% trial occupancy')
-    axes.set_xlabel('sessions')
+    axes.set_ylabel('% trial occupancy', size=size-2)
+    axes.set_xlabel('session', size=size-2)
     axes.set_ylim(0,100)
     axes.legend(loc='upper right')
 

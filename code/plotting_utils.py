@@ -243,7 +243,7 @@ def plotting_psychometric(w, sessInd, session, axes, colorsStates, title=f'sessi
     phi = dGLMHMM.observation_probability(x, np.repeat(w[sessInd[session]][np.newaxis], N, axis=0)[:,:,:d,:])
 
     axes.set_title(title, size=size)
-    axes.set_ylim(-0.05,1.05)
+    axes.set_ylim(-0.01,1.01)
     axes.set_ylabel('P(Right)', size=size-2)
     axes.set_xlabel('stimulus', size=size-2)
 

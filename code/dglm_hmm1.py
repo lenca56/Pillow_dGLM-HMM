@@ -458,7 +458,7 @@ class dGLM_HMM1():
             lf += -1/2 * np.log(det) - 1/2 * (currentW[:] - nextW[:,1]).T @ invCov @ (currentW[:] - nextW[:,1])
                     
         # penalty term for size of weights - NOT NECESSARY FOR NOW
-        lf+= L2penaltyW * -1/2 * currentW[:].T @ currentW[:]
+        lf += L2penaltyW * -1/2 * currentW[:].T @ currentW[:]
 
         return -lf 
 
@@ -669,7 +669,7 @@ class dGLM_HMM1():
         '''
 
         N = x.shape[0]
-        Ntest = presentTest.sum() # number of trials in test
+
 
         present = np.ones((N))
         phi = self.observation_probability(x=x, w=w)
@@ -683,8 +683,10 @@ class dGLM_HMM1():
         for s in range(sess):
             ct_session = ct[sessInd[s]:sessInd[s+1]]
             presentTest_session = presentTest[sessInd[s]:sessInd[s+1]]
-            llTest_per_session[s] = np.sum(np.log(ct_session[np.argwhere(presentTest_session==1)])) / (sessInd[s+1] - sessInd[s]) # average test log-like per session
-                    
+            Ntest_session = presentTest_session.sum() # number of trials in test
+            llTest_per_session[s] = np.sum(np.log(ct_session[np.argwhere(presentTest_session==1)])) / Ntest_session # average test log-like per session
+
+        Ntest = presentTest.sum() # number of trials in test        
         llTest = np.sum(np.log(ct[np.argwhere(presentTest==1)])) / Ntest # average test log-likelihood per trial
 
         gammaTest = gamma[np.argwhere(presentTest==1)].reshape((Ntest, self.k))

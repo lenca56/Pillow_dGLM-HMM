@@ -672,28 +672,32 @@ class dGLM_HMM2():
 
         return p, pi.reshape((self.k)), w, ll
 
-    def evaluate(self, x, y, sessInd, presentTest, p, pi, w, sortStates=False):
+    def evaluate(self, x, y, sessInd, presentTest, p, pi, w):
         ''' 
-        function that gives test log-like and test accuracy with forward pass using all data!
+        function that gives per session test log-like and test accuracy with forward pass using all data
         '''
-        N = x.shape[0]
-        Ntest = int(presentTest.sum()) # number of trials in test
 
-        if (sortStates==True):
-            sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
-            w = w[:,sortedStateInd,:,:]
-            p = p[:,sortedStateInd,:][:,:,sortedStateInd]
-            pi = pi.reshape((self.k,))
-            pi = pi[sortedStateInd]
+        N = x.shape[0]
         
+
         present = np.ones((N))
         phi = self.observation_probability(x=x, w=w)
 
-        alpha, ct, _ = self.forward_pass(y, present, p, pi, phi, sessInd[:-1])
+        alpha, ct, ll = self.forward_pass(y, present, p, pi, phi, sessInd[:-1])
         beta = self.backward_pass(y, present, p, phi, ct, sessInd[:-1])
         gamma, _ = self.posteriorLatents(y, present, p, phi, alpha, beta, ct, sessInd[:-1])
-                
+
+        sess = len(sessInd) - 1
+        llTest_per_session = np.zeros((sess))
+        for s in range(sess):
+            ct_session = ct[sessInd[s]:sessInd[s+1]]
+            presentTest_session = presentTest[sessInd[s]:sessInd[s+1]]
+            Ntest_session = presentTest_session.sum() # number of trials in test in this session
+            llTest_per_session[s] = np.sum(np.log(ct_session[np.argwhere(presentTest_session==1)])) / Ntest_session # average test log-like per session
+
+        Ntest = presentTest.sum() # number of trials in test     
         llTest = np.sum(np.log(ct[np.argwhere(presentTest==1)])) / Ntest # average test log-likelihood per trial
+
         gammaTest = gamma[np.argwhere(presentTest==1)].reshape((Ntest, self.k))
         phiTest = phi[np.argwhere(presentTest==1)].reshape((Ntest, self.k, self.c))
         yTest = y[np.argwhere(presentTest==1)].reshape((Ntest,))
@@ -704,38 +708,8 @@ class dGLM_HMM2():
 
         Nwrong = np.logical_xor(choiceHard, yTest).sum()
         accuracyTest = (Ntest - Nwrong) / Ntest * 100 # correct predictions on observed y
-        
-        return llTest, accuracyTest #, llTest1
-    
-    def evaluate_per_session(self, x, y, sessInd, presentTest, p, pi, w, sortStates=False):
-        ''' 
-        function that gives test log-like and test accuracy with forward pass using all data!
-        '''
-        N = x.shape[0]
-        Ntest = int(presentTest.sum()) # number of trials in test
-
-        if (sortStates==True):
-            sortedStateInd = get_states_order(w, sessInd, stimCol=[1])
-            w = w[:,sortedStateInd,:,:]
-            p = p[:,sortedStateInd,:][:,:,sortedStateInd]
-            pi = pi.reshape((self.k,))
-            pi = pi[sortedStateInd]
             
-        present = np.ones((N))
-        phi = self.observation_probability(x=x, w=w)
-
-        alpha, ct, _ = self.forward_pass(y, present, p, pi, phi, sessInd[:-1])
-        beta = self.backward_pass(y, present, p, phi, ct, sessInd[:-1])
-
-        llTestSessions = np.zeros((len(sessInd)-1))
-        for s in range(0, len(sessInd)-1):
-            count = 0
-            for t in range(sessInd[s],sessInd[s+1]):
-                if presentTest[t] == 1:
-                    llTestSessions[s] += np.log(ct[t]) 
-                    count += 1 
-            llTestSessions[s] = llTestSessions[s]/count
-        return llTestSessions
+        return llTest_per_session, llTest, accuracyTest 
 
     def get_posterior_latent(self, p, pi, w, x, y, present, sessInd, sortedStateInd=None):
         if (sortedStateInd is not None):
